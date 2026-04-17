@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Apps fragment – a fixed-size grid of application icons.
+    No RecyclerView/ScrollView: the number of cells is fixed per page and the
+    user navigates between pages of apps using the global nav buttons.
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/background"
+    android:padding="8dp">
+
+    <!-- App grid: a plain GridLayout with a fixed column count.
+         The adapter fills in each cell; no scrolling is needed because
+         the adapter paginates the app list across multiple fragment
+         instances inside the ViewPager2. -->
+    <GridLayout
+        android:id="@+id/gridApps"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:columnCount="4"
+        android:rowCount="5"
+        android:useDefaultMargins="true" />
+
+</LinearLayout>
