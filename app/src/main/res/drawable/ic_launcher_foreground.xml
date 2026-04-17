@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple e-ink style launcher icon: black square with white letter E -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Background -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M0,0 L108,0 L108,108 L0,108 Z" />
+    <!-- Letter E in white -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,20 L80,20 L80,34 L42,34 L42,47 L75,47 L75,61 L42,61 L42,74 L80,74 L80,88 L28,88 Z" />
+</vector>

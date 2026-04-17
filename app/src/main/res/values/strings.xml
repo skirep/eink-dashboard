@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">E-Ink Launcher</string>
+    <string name="page_slideshow">Inici</string>
+    <string name="page_apps">Apps</string>
+    <string name="prev_page">Anterior</string>
+    <string name="next_page">Següent</string>
+    <string name="no_images">Afegeix imatges a\n/Android/data/com.eink.launcher/files/EInkLauncher/</string>
+    <string name="page_indicator">%1$d / %2$d</string>
+</resources>

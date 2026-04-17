@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- E-Ink optimised palette: pure black and white, high contrast -->
+    <color name="eink_black">#FF000000</color>
+    <color name="eink_white">#FFFFFFFF</color>
+    <color name="eink_gray">#FF808080</color>
+    <color name="eink_light_gray">#FFD0D0D0</color>
+    <color name="eink_dark_gray">#FF303030</color>
+
+    <!-- Semantic aliases -->
+    <color name="background">#FFFFFFFF</color>
+    <color name="on_background">#FF000000</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="on_surface">#FF000000</color>
+    <color name="button_background">#FF000000</color>
+    <color name="button_text">#FFFFFFFF</color>
+    <color name="nav_bar_background">#FFFFFFFF</color>
+    <color name="nav_bar_divider">#FF000000</color>
+    <color name="app_label">#FF000000</color>
+    <color name="page_indicator">#FF000000</color>
+</resources>
