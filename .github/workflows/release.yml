@@ -4,6 +4,7 @@ name: Build & Release APK
 # Builds a debug APK (signed with the Android debug key) – no secrets required.
 
 on:
+  workflow_dispatch: 
   push:
     tags:
       - 'v*'
