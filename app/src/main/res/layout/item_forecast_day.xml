@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Item for a single day in the 5-day forecast
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/tvDayName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="DM"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="@color/on_background"
+        android:layout_marginBottom="4dp" />
+
+    <!-- Weather icon placeholder -->
+    <TextView
+        android:id="@+id/tvWeatherIcon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="☁"
+        android:textSize="24sp"
+        android:textColor="@color/on_background"
+        android:layout_marginBottom="4dp" />
+
+    <TextView
+        android:id="@+id/tvMaxTemp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="18°"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="@color/on_background" />
+
+    <TextView
+        android:id="@+id/tvMinTemp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="11°"
+        android:textSize="12sp"
+        android:textColor="@color/eink_gray" />
+
+</LinearLayout>

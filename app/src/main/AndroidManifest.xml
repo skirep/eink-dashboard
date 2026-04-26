@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Internet permission for weather API -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+    <!-- Location permissions for weather (optional, can use city name instead) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    
     <!--
         No broad storage permissions needed: slideshow images are stored in
         the app's own external files directory (getExternalFilesDir), which is
