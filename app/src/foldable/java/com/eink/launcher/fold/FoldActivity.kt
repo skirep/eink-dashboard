@@ -42,6 +42,7 @@ class FoldActivity : AppCompatActivity() {
     private var search = ""
     private var events: List<AgendaEvent> = emptyList()
     private var agendaError: String? = null
+    private var agendaReady = false
     private var weather: JSONObject? = null
     private var weatherStatus = ""
     private var weatherJob: Job? = null
@@ -386,7 +387,7 @@ class FoldActivity : AppCompatActivity() {
     }
     private fun calendarGranted() = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
     private fun refreshAgenda() {
-        if (!calendarGranted()) { events = emptyList(); render(); return }
+        if (!calendarGranted()) { events = emptyList(); agendaReady = false; render(); return }
         if (!observerRegistered) {
             contentResolver.registerContentObserver(CalendarContract.CONTENT_URI, true, calendarObserver); observerRegistered = true
         }
@@ -394,8 +395,8 @@ class FoldActivity : AppCompatActivity() {
         agendaJob = lifecycleScope.launch {
             try {
                 val updated = withContext(Dispatchers.IO) { DashboardData.agenda(this@FoldActivity) }
-                if (events == updated && agendaError == null) return@launch
-                events = updated; agendaError = null
+                if (events == updated && agendaError == null && agendaReady) return@launch
+                events = updated; agendaError = null; agendaReady = true
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { events = emptyList(); agendaError = "No s’ha pogut llegir el calendari del dispositiu" }
             render()
