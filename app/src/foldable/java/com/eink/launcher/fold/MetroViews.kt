@@ -78,7 +78,11 @@ internal class WeatherArt(context: Context, private val code: Int, private val n
         }
         if (code >= 51) {
             p.color = 0xff84dcff.toInt(); p.strokeWidth = 3f; p.strokeCap = Paint.Cap.ROUND
-            for (x in listOf(35f, 52f, 69f)) canvas.drawLine(x, 80f, x-3f, 88f, p)
+            for (x in floatArrayOf(35f, 52f, 69f)) {
+                if (code in 71..77 || code == 85 || code == 86) {
+                    canvas.drawLine(x-3f, 84f, x+3f, 84f, p); canvas.drawLine(x, 81f, x, 87f, p)
+                } else canvas.drawLine(x, 80f, x-3f, 88f, p)
+            }
         }
         if (code >= 95) {
             p.color = 0xffffdc91.toInt(); val bolt = Path().apply { moveTo(57f, 67f); lineTo(45f, 83f); lineTo(54f, 83f); lineTo(48f, 97f); lineTo(67f, 77f); lineTo(57f, 77f); close() }; canvas.drawPath(bolt, p)

@@ -98,7 +98,7 @@ class FoldActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 WindowInfoTracker.getOrCreate(this@FoldActivity).windowLayoutInfo(this@FoldActivity).collect { info ->
                     val feature = info.displayFeatures.filterIsInstance<FoldingFeature>().firstOrNull()
-                    if (hinge != feature) { hinge = feature; render() }
+                    if (hinge != feature) { hinge = feature; entrancePending = true; render() }
                 }
             }
         }
@@ -133,7 +133,7 @@ class FoldActivity : AppCompatActivity() {
         typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         setLineSpacing(dp(2).toFloat(), 1f)
     }
-    private fun caption(value: String, color: Int = MetroStyle.muted) = text(value, 11f, color).apply { letterSpacing = .1f; typeface = Typeface.create("sans-serif-medium", 0) }
+    private fun caption(value: String, color: Int = MetroStyle.muted) = text(value, 11f, color).apply { letterSpacing = .1f; typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL) }
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     private fun action(label: String, click: () -> Unit) = Button(this).apply {
         text = label; isAllCaps = false; textSize = 14f; minHeight = dp(48); minimumWidth = 0
