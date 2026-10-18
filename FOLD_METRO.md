@@ -1,9 +1,18 @@
-# Fold Metro / Magic V2 — v0.3
+# Fold Metro / Magic V2 — v0.4
 
-Launcher Android amb estètica Windows 10 Mobile: mosaics amb degradats, fons OLED
-amb llum ambiental i il·lustracions meteorològiques natives. En desplegar el mòbil,
-una transició breu reorganitza el contingut en dos panells. Els efectes es poden
-desactivar i es respecten l’estalvi de bateria i les animacions desactivades del sistema.
+Launcher Android amb estètica Windows 10 Mobile i mosaics translúcids amb vores de llum.
+El temps de **Cabrils** transforma el fons: paisatge en capes, núvols que es desplacen,
+pluja o neu i cel de dia o de nit segons les dades d’Open-Meteo. Sense dades,
+es mostra un paisatge neutre sense inventar meteorologia. El relleu és una
+il·lustració estilitzada, no una representació geogràfica exacta de Cabrils.
+
+En desplegar el mòbil el paisatge s’obre amb profunditat i els mosaics entren en
+cascada. Arrossegar el dit produeix un paral·laxi suau sense impedir els gestos
+normals de les apps. El moviment es limita a 30 fps, s’atura en perdre el focus,
+en sortir del launcher, amb estalvi de bateria o amb animacions del sistema
+desactivades. **Configuració → Efectes visuals** permet desactivar-lo.
+**Configuració → Prova els paisatges vius** mostra simulacions de sol, núvols,
+pluja, neu i nit, identificades explícitament, sense canviar el temps real.
 
 ## Dues ciutats
 

@@ -21,34 +21,16 @@ internal object MetroStyle {
     ).apply { cornerRadius = radius }
 }
 
-/** Static OLED-friendly aurora. Only the entrance transition animates; no perpetual redraw loop. */
-internal class AuroraSurface(context: Context) : FrameLayout(context) {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    init { setWillNotDraw(false); setBackgroundColor(MetroStyle.background) }
-    override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-        val w = width.toFloat(); val h = height.toFloat()
-        paint.shader = RadialGradient(w * .88f, h * .16f, w * .95f,
-            intArrayOf(0xff27376a.toInt(), 0xff10172e.toInt(), MetroStyle.background), floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP)
-        canvas.drawRect(0f, 0f, w, h, paint)
-        paint.shader = RadialGradient(w * .05f, h * .55f, w * .8f,
-            intArrayOf(0x1933ecc8, 0x0033ecc8), null, Shader.TileMode.CLAMP)
-        canvas.drawRect(0f, 0f, w, h, paint)
-        paint.shader = null
-        paint.color = 0x12558ee8; paint.style = Paint.Style.STROKE; paint.strokeWidth = resources.displayMetrics.density
-        canvas.drawCircle(w * 1.04f, h * .28f, w * .61f, paint)
-        canvas.drawCircle(w * 1.04f, h * .28f, w * .68f, paint)
-        paint.style = Paint.Style.FILL
-    }
-}
-
 internal class MetroTile(context: Context, start: Int, end: Int) : LinearLayout(context) {
     init {
         orientation = VERTICAL
         val density = resources.displayMetrics.density
-        background = MetroStyle.surface(start, end, density * 3f)
+        background = MetroStyle.surface(
+            (start and 0x00ffffff) or 0x99000000.toInt(),
+            (end and 0x00ffffff) or 0xd9000000.toInt(), density * 7f
+        ).apply { setStroke((density * .7f).roundToInt().coerceAtLeast(1), 0x3cdbedff) }
         foreground = RippleDrawable(ColorStateList.valueOf(0x22ffffff), null,
-            MetroStyle.surface(-1, -1, density * 3f))
+            MetroStyle.surface(-1, -1, density * 7f))
         elevation = 2 * density
         clipToOutline = true
     }

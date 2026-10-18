@@ -171,7 +171,9 @@ class FoldActivity : AppCompatActivity() {
         val wide = FoldPolicy.expanded(width, hinge != null)
         val animate = entrancePending || (renderedWide != null && renderedWide != wide)
         entrancePending = false; renderedWide = wide
-        val surface = AuroraSurface(this)
+        val sky = weatherStore.snapshot("cabrils").data?.optJSONObject("current")
+        val surface = WeatherScene(this, sky?.optInt("weather_code", -1) ?: -1,
+            sky?.optInt("is_day", 1) == 0, prefs.getBoolean("effects", true), animate)
         val root = column().apply { setPadding(dp(20), dp(12), dp(20), dp(8)); fitsSystemWindows = true }
         surface.addView(root, FrameLayout.LayoutParams(-1, -1))
         val heading = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -284,7 +286,7 @@ class FoldActivity : AppCompatActivity() {
                 block(parent, forecast, 7)
             }
         }
-        block(parent, text("Open-Meteo · toca Cabrils per a més detalls", 11f, MetroStyle.muted), 7)
+        block(parent, text("Fons viu de Cabrils · Open-Meteo", 11f, MetroStyle.muted), 7)
     }
 
     private fun weatherDetails(location: WeatherLocation) {
@@ -403,14 +405,37 @@ class FoldActivity : AppCompatActivity() {
 
     private fun settings() {
         val effects = if (prefs.getBoolean("effects", true)) "activats" else "desactivats"
-        AlertDialog.Builder(this).setTitle("Fold Metro / Magic V2").setItems(arrayOf("Segona ciutat", "Calendaris Google i Outlook", "Efectes visuals: $effects", "Actualitza temps i agenda", "Launcher per defecte", "Configuració d’Android")) { _, item ->
+        AlertDialog.Builder(this).setTitle("Fold Metro / Magic V2").setItems(arrayOf("Segona ciutat", "Calendaris Google i Outlook", "Efectes visuals: $effects", "Actualitza temps i agenda", "Launcher per defecte", "Configuració d’Android", "Prova els paisatges vius")) { _, item ->
             when (item) {
                 0 -> cityDialog(); 1 -> calendarPicker()
                 2 -> { prefs.edit().putBoolean("effects", !prefs.getBoolean("effects", true)).apply(); entrancePending = true; render() }
                 3 -> { refreshWeather(true); refreshAgenda() }; 4 -> chooseHome(); 5 -> open(Intent(Settings.ACTION_SETTINGS))
+                6 -> previewWeather()
             }
         }.show()
     }
+    internal fun previewWeather() {
+        val scenes = arrayOf("Sol", "Núvols", "Pluja", "Neu", "Nit")
+        val body = column()
+        val stage = FrameLayout(this)
+        fun show(index: Int) {
+            stage.removeAllViews()
+            stage.addView(WeatherScene(this, intArrayOf(0, 3, 61, 73, 0)[index], index == 4,
+                prefs.getBoolean("effects", true), true), FrameLayout.LayoutParams(-1, -1))
+            stage.addView(text("SIMULACIÓ · ${scenes[index].uppercase(Locale("ca"))}", 12f).apply {
+                setPadding(dp(16), dp(16), dp(16), 0)
+            })
+        }
+        show(0)
+        body.addView(stage, LinearLayout.LayoutParams(-1, dp(320)))
+        val choices = LinearLayout(this)
+        scenes.forEachIndexed { i, label -> choices.addView(action(label) { show(i) }, LinearLayout.LayoutParams(0, dp(48), 1f)) }
+        body.addView(choices)
+        AlertDialog.Builder(this).setTitle("Paisatges vius / Cabrils").setView(body)
+            .setMessage("Mostres visuals. El fons d’inici segueix el temps real de Cabrils. Mou el dit per veure la profunditat.")
+            .setPositiveButton("Tanca", null).show()
+    }
+
     private fun cityDialog() {
         val input = EditText(this).apply { setSingleLine(); hint = "Nom de la ciutat"; setText(weatherStore.extra()?.name ?: "") }
         val builder = AlertDialog.Builder(this).setTitle("Cabrils + el teu altre lloc").setMessage("Cabrils es manté fix. Escull la segona ciutat.").setView(input).setNegativeButton("Cancel·la", null)

@@ -10,6 +10,24 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class FoldSmokeTest {
+    @Test fun weatherLandscapePreviewCanSwitchConditions() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        device.executeShellCommand("mkdir -p /sdcard/Download/fold-metro")
+        ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
+            scenario.onActivity { it.previewWeather() }
+            assertTrue(device.wait(Until.hasObject(By.text("SIMULACIÓ · SOL")), 10000))
+            listOf("Pluja" to "PLUJA", "Neu" to "NEU", "Nit" to "NIT").forEach { (button, label) ->
+                device.findObject(UiSelector().text(button)).click()
+                assertTrue(device.wait(Until.hasObject(By.text("SIMULACIÓ · $label")), 5000))
+                device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/landscape-${button.lowercase()}.png")
+            }
+            device.findObject(UiSelector().resourceId("android:id/button1")).click()
+            assertTrue(device.wait(Until.hasObject(By.text("Cabrils")), 10000))
+            assertFalse(device.hasObject(By.textContains("SIMULACIÓ")))
+        }
+    }
+
     @Test fun resizingKeepsLauncherAndSearchAlive() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val device = UiDevice.getInstance(instrumentation)
