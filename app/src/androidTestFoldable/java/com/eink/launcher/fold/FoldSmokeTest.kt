@@ -34,9 +34,10 @@ class FoldSmokeTest {
                 resize("2100x2340")
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista ampla")), 15000))
                 screenshot("expanded")
-                requireNotNull(device.wait(Until.findObject(By.textContains("Aplicacions")), 10000)).click()
+                device.findObject(UiSelector().textContains("Aplicacions")).click()
                 val query = "zzzz-test-search"
-                requireNotNull(device.wait(Until.findObject(By.clazz("android.widget.EditText")), 10000)).text = query
+                assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 10000))
+                device.findObject(UiSelector().className("android.widget.EditText")).setText(query)
                 resize("1080x2340")
                 assertTrue(device.wait(Until.hasObject(By.text(query)), 15000))
                 scenario.recreate()

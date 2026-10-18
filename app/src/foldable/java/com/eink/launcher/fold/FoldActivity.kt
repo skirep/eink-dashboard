@@ -59,6 +59,7 @@ class FoldActivity : AppCompatActivity() {
     private var renderedWide: Boolean? = null
     private var entrancePending = true
     private var calendarPickerPending = false
+    private var dataRenderPending = false
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         refreshAgenda()
         if (granted && calendarPickerPending) { calendarPickerPending = false; calendarPicker() }
@@ -112,6 +113,14 @@ class FoldActivity : AppCompatActivity() {
         handler.post(tick)
     }
     override fun onResume() { super.onResume(); refreshAgenda() }
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && dataRenderPending && !appDrawer) { dataRenderPending = false; render() }
+    }
+    private fun renderData() {
+        // Data updates must not replace a focused search field or disturb an open dialog.
+        if (appDrawer || !hasWindowFocus()) dataRenderPending = true else render()
+    }
     override fun onStop() {
         handler.removeCallbacks(tick); unregisterReceiver(packageReceiver)
         if (observerRegistered) { contentResolver.unregisterContentObserver(calendarObserver); observerRegistered = false }
@@ -156,6 +165,7 @@ class FoldActivity : AppCompatActivity() {
     private fun saveScroll() { homeScroll?.let { homeY = it.scrollY }; rightScroll?.let { rightY = it.scrollY }; drawerScroll?.let { drawerY = it.scrollY } }
 
     private fun render() {
+        dataRenderPending = false
         saveScroll(); homeScroll = null; rightScroll = null; drawerScroll = null
         val width = resources.configuration.screenWidthDp
         val wide = FoldPolicy.expanded(width, hinge != null)
@@ -460,7 +470,7 @@ class FoldActivity : AppCompatActivity() {
             if (observerRegistered) { contentResolver.unregisterContentObserver(calendarObserver); observerRegistered = false }
             val changed = agendaReady || events.isNotEmpty() || sources.isNotEmpty()
             events = emptyList(); sources = emptyList(); agendaReady = false
-            if (changed) render()
+            if (changed) renderData()
             return
         }
         if (!observerRegistered) { contentResolver.registerContentObserver(CalendarContract.CONTENT_URI, true, calendarObserver); observerRegistered = true }
@@ -473,7 +483,7 @@ class FoldActivity : AppCompatActivity() {
                 sources = result.first; events = result.second; agendaError = null; agendaReady = true
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { events = emptyList(); sources = emptyList(); agendaError = "No s’han pogut llegir els calendaris" }
-            render()
+            renderData()
         }
     }
     private fun refreshWeather(force: Boolean = false) {
@@ -490,7 +500,7 @@ class FoldActivity : AppCompatActivity() {
                     weatherStore.save(location, result); weatherStatus[location.id] = ""
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) { weatherStatus[location.id] = if (snapshot.data != null) "Dades desades · sense connexió" else "Sense connexió · reintenta" }
-                render()
+                renderData()
             }
         }
     }
