@@ -36,7 +36,7 @@ jobs:
       - name: Rename APK with version tag
         run: |
           VERSION=${GITHUB_REF_NAME}
-          mv app/build/outputs/apk/eink/debug/app-debug.apk \
+          mv app/build/outputs/apk/eink/debug/app-eink-debug.apk \
              app/build/outputs/apk/eink/debug/eink-dashboard-${VERSION}.apk
 
       - name: Create GitHub Release
