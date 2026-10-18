@@ -1,40 +1,52 @@
-# Fold Metro
+# Fold Metro / Magic V2 — v0.3
 
-Launcher Android natiu, inspirat en els mosaics de Windows 10 Mobile. Variant
-`foldable` del projecte e-ink existent, amb identificador independent
-`com.eink.launcher.foldable`; es poden tenir les dues apps instal·lades.
+Launcher Android amb estètica Windows 10 Mobile: mosaics amb degradats, fons OLED
+amb llum ambiental i il·lustracions meteorològiques natives. En desplegar el mòbil,
+una transició breu reorganitza el contingut en dos panells. Els efectes es poden
+desactivar i es respecten l’estalvi de bateria i les animacions desactivades del sistema.
 
-## Ús
+## Dues ciutats
 
-1. Instal·la l'APK **Fold-Metro-Android** de l'última execució correcta de
-   [Fold Metro APK](https://github.com/skirep/eink-dashboard/actions/workflows/foldable.yml).
-2. Obre **Fold Metro** i toca **Estableix com a inici**.
-3. **Connecta l'agenda** demana només lectura. Mostra els calendaris visibles
-   sincronitzats al dispositiu, recurrències incloses, dels pròxims set dies.
-   No llegeix calendaris remots que Android no tingui sincronitzats.
-4. **⚙ → Ciutat del temps**: cerca i confirma la ubicació. Cabrils és la inicial.
-5. Toca un mosaic per obrir l'app. Pulsació llarga per treure'l o fixar-lo
-   des de **Totes les aplicacions**. La cerca i els preferits són locals.
+**Cabrils sempre queda fix**. Toca **Tria una ciutat** o **Configuració → Segona ciutat**
+per cercar una segona ubicació i escollir-la d’una llista de coincidències.
+Cada ciutat té dades, hora d’actualització i memòria cau independents.
+No es fan servir dades inventades si falla la xarxa. Mantén premuda la segona ciutat
+per canviar-la; la configuració també permet eliminar-la. Toca Cabrils per a la previsió.
+Si a v0.2 s’havia triat una altra ciutat, es conserva ara com a segona ubicació.
 
-## Pantalles
+## Google Calendar i Outlook
 
-- Compacta: temps resumit, dos pròxims actes i mosaics en dues o tres columnes.
-- Ampla: temps amb previsió de cinc dies i apps a l'esquerra; agenda a la dreta.
-- Frontissa separadora: panells desplaçables independents que reserven el plec,
-  també en orientació de taula. Jetpack WindowManager observa els canvis.
-- Si el fabricant no exposa `FoldingFeature`, s'adapta a partir de 600 dp
-  d'amplada i ho indica com a **adaptació per mida**. Una finestra ampla no
-  prova que la frontissa estigui físicament oberta.
-- Canvis de mida, rotació i recreació conserven cerca, vista i desplaçament.
+L’agenda combina els calendaris accessibles al perfil d’Android del launcher.
+**Calendaris** permet seleccionar-los individualment i mostra nom, compte i origen.
+Els actes indiquen Google, Outlook / Microsoft o el seu calendari d’origen.
+La lectura és local: no s’envien esdeveniments als serveis del temps.
 
-## Temps i privadesa
+- **Google:** compte afegit a Android amb sincronització de Calendari activa.
+- **Outlook:** a Outlook per Android → Configuració → compte → **Sincronitza els calendaris**.
+  Torna al launcher i escull els calendaris exportats al calendari d’Android.
+- Els comptes de feina poden prohibir aquesta exportació o situar els calendaris
+  en un perfil de treball separat. El launcher no accedeix a dades d’un altre perfil
+  ni evita les restriccions de l’empresa.
+- No és una connexió OAuth directa a Google o Microsoft: depèn de la sincronització
+  del dispositiu. No cal registrar credencials d’aplicació ni compartir contrasenyes.
 
-Open-Meteo, sense clau API, amb atribució visible. La consulta envia coordenades
-de la ciutat triada al servei; no envia l'agenda. No utilitza GPS ni serveis de
-Google. Actualitza cada 30 minuts mentre el launcher és visible, amb reintent
-manual i dades locals amb hora d'actualització quan falla la xarxa.
-La ciutat trobada requereix confirmació per evitar triar un homònim en silenci.
-El servei gratuït té condicions d'ús no comercial: https://open-meteo.com/en/terms
+Font de Microsoft: https://support.microsoft.com/en-us/outlook/how-do-i-sync-my-outlook-calendar-to-the-default-calendar-app-s
+
+## Instal·lació i ús
+
+Descarrega **Fold-Metro-Android** de la darrera execució correcta de
+[Fold Metro APK](https://github.com/skirep/eink-dashboard/actions/workflows/foldable.yml).
+Instal·la `app-foldable-debug.apk` i estableix **Fold Metro** com a inici.
+Identificador `com.eink.launcher.foldable`, independent de la variant e-ink.
+Pulsació llarga en una app per fixar-la o treure-la. El botó Aplicacions sempre és visible.
+
+## Adaptació al plegable
+
+Jetpack WindowManager observa la frontissa; es reserva l’espai quan separa la finestra.
+Si MagicOS no exposa aquesta informació, s’adapta a partir de 600 dp d’amplada.
+La cerca, vista, mosaics i desplaçament es conserven durant canvis de mida i recreació.
+No es presenta una finestra ampla com a prova de l’estat físic de la frontissa.
+Cal provar el comportament físic en un Honor Magic V2.
 
 ## Compilació i verificació
 
@@ -42,20 +54,14 @@ JDK 17 i Android SDK 34:
 
 ```sh
 ./gradlew testFoldableDebugUnitTest assembleFoldableDebug lintFoldableDebug assembleEinkDebug
+./gradlew connectedFoldableDebugAndroidTest
 ```
 
-APK: `app/build/outputs/apk/foldable/debug/app-foldable-debug.apk`.
-Variant original: `./gradlew assembleEinkDebug`.
-El workflow comprova totes dues variants i publica l'APK i informes.
+El workflow publica APK, informes i captures en format compacte i ampli.
+Les proves Android verifiquen memòria cau independent i descarten respostes de
+ciutats antigues, combinen i filtren calendaris amb els adaptadors Google/Microsoft,
+i comproven cerca i recreació en canviar de mida. Les captures `agenda-test-fixtures`
+contenen actes de prova explícits, no dades personals reals ni una connexió a comptes remots.
 
-Cal verificar en un plegable físic (en particular Honor Magic V2):
-obrir/tancar diverses vegades des d'inici i des de la cerca, rotació,
-font gran, inici per defecte i retorn des d'una app, calendari denegat/revocat,
-esdeveniments recurrents i de tot el dia, xarxa desconnectada, ciutat canviada,
-instal·lació/desinstal·lació d'apps i persistència de mosaics.
-No s'ha de confondre una compilació correcta amb aquesta validació física.
-
-Documentació base:
-- https://developer.android.com/develop/ui/views/layout/foldables
-- https://developer.android.com/reference/android/provider/CalendarContract.Instances
-- https://open-meteo.com/en/docs
+Open-Meteo rep només coordenades de les ciutats seleccionades, amb atribució a l’app.
+El servei gratuït té condicions d’ús no comercial: https://open-meteo.com/en/terms

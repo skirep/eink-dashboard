@@ -27,11 +27,13 @@ class FoldSmokeTest {
             resize("1080x2340")
             ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista compacta")), 15000))
+                assertTrue(device.hasObject(By.text("Cabrils")))
+                assertTrue(device.hasObject(By.text("Tria una ciutat")))
                 screenshot("compact")
                 resize("2100x2340")
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista ampla")), 15000))
                 screenshot("expanded")
-                requireNotNull(device.wait(Until.findObject(By.textContains("Totes les aplicacions")), 10000)).click()
+                requireNotNull(device.wait(Until.findObject(By.textContains("Aplicacions")), 10000)).click()
                 val query = "zzzz-test-search"
                 requireNotNull(device.wait(Until.findObject(By.clazz("android.widget.EditText")), 10000)).text = query
                 resize("1080x2340")

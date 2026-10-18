@@ -22,8 +22,8 @@ android {
         foldable {
             dimension "display"
             applicationIdSuffix ".foldable"
-            versionCode 2
-            versionName "0.2-foldable"
+            versionCode 3
+            versionName "0.3-magic-v2"
         }
     }
 

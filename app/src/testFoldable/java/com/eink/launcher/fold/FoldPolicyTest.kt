@@ -4,6 +4,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class FoldPolicyTest {
+    @Test fun googleAndMicrosoftSyncAdaptersRetainProviderIdentity() {
+        assertEquals("Google", CalendarSource.providerFor("com.google"))
+        assertEquals("Outlook / Microsoft", CalendarSource.providerFor("com.microsoft.office.outlook.USER_ACCOUNT"))
+        assertEquals("Outlook / Microsoft", CalendarSource.providerFor("com.android.exchange"))
+        assertEquals("Calendari", CalendarSource.providerFor("LOCAL"))
+    }
+    @Test fun cabrilsHasItsOwnFixedLocationIdentity() {
+        assertEquals("cabrils", WeatherLocations.cabrils.id)
+        assertEquals("Cabrils", WeatherLocations.cabrils.name)
+    }
+
     @Test fun allDayAgendaKeepsItsCalendarDateInWesternTimezones() {
         val previous = java.util.TimeZone.getDefault()
         try {
