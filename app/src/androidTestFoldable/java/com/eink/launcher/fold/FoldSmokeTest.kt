@@ -29,6 +29,7 @@ class FoldSmokeTest {
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista compacta")), 15000))
                 assertTrue(device.hasObject(By.text("Cabrils")))
                 assertTrue(device.hasObject(By.text("Tria una ciutat")))
+                assertTrue(device.wait(Until.hasObject(By.text("Calendar")), 10000))
                 screenshot("compact")
                 resize("2100x2340")
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista ampla")), 15000))

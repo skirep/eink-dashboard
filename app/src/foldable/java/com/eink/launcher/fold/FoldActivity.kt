@@ -168,7 +168,7 @@ class FoldActivity : AppCompatActivity() {
         val title = column()
         title.addView(caption("FOLD / METRO     ·     MAGIC V2", MetroStyle.mint))
         val hourLine = LinearLayout(this).apply { gravity = Gravity.BOTTOM }
-        headerClock = text(clockText(), if (width < 420) 48f else 56f).also { hourLine.addView(it) }
+        headerClock = text(clockText(), if (width < 420) 42f else 50f).also { hourLine.addView(it) }
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         if (resources.configuration.fontScale <= 1.15f) hourLine.addView(text(when (hour) { in 6..12 -> "Bon dia."; in 13..19 -> "Bona tarda."; else -> "Bona nit." }, 14f, MetroStyle.muted), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(14); bottomMargin = dp(12) })
         title.addView(hourLine)
@@ -240,13 +240,13 @@ class FoldActivity : AppCompatActivity() {
             val current = snapshot?.data?.optJSONObject("current")
             val night = current?.optInt("is_day", 1) == 0
             val code = current?.optInt("weather_code", -1) ?: -1
-            val card = tile(if (i == 0) 0xff176d71.toInt() else 0xff434381.toInt(), if (i == 0) 0xff112c46.toInt() else 0xff201e41.toInt(), 13)
+            val card = tile(if (i == 0) 0xff176d71.toInt() else 0xff434381.toInt(), if (i == 0) 0xff112c46.toInt() else 0xff201e41.toInt(), 11)
             card.addView(caption(if (i == 0) "A CASA" else "EL TEU ALTRE LLOC", 0xffd4e7ff.toInt()))
-            card.addView(text(location?.name ?: "Tria una ciutat", 19f))
+            card.addView(text(location?.name ?: "Tria una ciutat", 17f))
             val visual = FrameLayout(this)
-            visual.addView(WeatherArt(this, code, night).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, FrameLayout.LayoutParams(dp(66), dp(66), Gravity.END or Gravity.CENTER_VERTICAL))
-            visual.addView(text(if (current != null) "${current.optDouble("temperature_2m").roundToInt()}°" else if (location == null) "+" else "—°", 41f), FrameLayout.LayoutParams(-2, -2, Gravity.START or Gravity.CENTER_VERTICAL))
-            card.addView(visual, LinearLayout.LayoutParams(-1, dp(78)))
+            visual.addView(WeatherArt(this, code, night).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, FrameLayout.LayoutParams(dp(58), dp(58), Gravity.END or Gravity.CENTER_VERTICAL))
+            visual.addView(text(if (current != null) "${current.optDouble("temperature_2m").roundToInt()}°" else if (location == null) "+" else "—°", 39f), FrameLayout.LayoutParams(-2, -2, Gravity.START or Gravity.CENTER_VERTICAL))
+            card.addView(visual, LinearLayout.LayoutParams(-1, dp(62)))
             card.addView(text(if (current != null) DashboardData.condition(code) else if (location == null) "Toca per escollir" else "Carregant el temps", 14f))
             val stamp = snapshot?.updated ?: 0
             val state = location?.let { weatherStatus[it.id] }
@@ -274,7 +274,7 @@ class FoldActivity : AppCompatActivity() {
                 block(parent, forecast, 7)
             }
         }
-        block(parent, text("Open-Meteo · toca Cabrils per a més detalls", 11f, MetroStyle.muted), 14)
+        block(parent, text("Open-Meteo · toca Cabrils per a més detalls", 11f, MetroStyle.muted), 7)
     }
 
     private fun weatherDetails(location: WeatherLocation) {
@@ -291,7 +291,7 @@ class FoldActivity : AppCompatActivity() {
     }
 
     private fun addAgenda(parent: LinearLayout, count: Int, animate: Boolean) {
-        val card = tile(0xff202d4c.toInt(), 0xff121b30.toInt())
+        val card = tile(0xff202d4c.toInt(), 0xff121b30.toInt(), if (count == 1) 11 else 16)
         card.addView(caption("LA TEVA AGENDA / 7 DIES", MetroStyle.blue))
         val enabled = selectedCalendars()
         val active = sources.filter { enabled?.contains(it.id) ?: it.visible }
@@ -302,24 +302,26 @@ class FoldActivity : AppCompatActivity() {
         card.addView(text(summary, 13f, MetroStyle.muted))
         when {
             !calendarGranted() -> {
-                card.addView(text("Tot el teu dia,\nen un sol lloc.", 24f))
+                if (count > 1) card.addView(text("Tot el teu dia,\nen un sol lloc.", 24f))
                 block(card, action("Connecta els calendaris") { requestCalendar() }, 0)
             }
             agendaError != null -> card.addView(text(agendaError!!, 16f))
             !agendaReady -> card.addView(text("Carregant calendaris…", 16f))
             sources.isEmpty() -> {
-                card.addView(text("Activa la sincronització de Google i Outlook per veure els esdeveniments aquí.", 16f))
+                if (count > 1) card.addView(text("Activa la sincronització de Google i Outlook per veure els esdeveniments aquí.", 16f))
                 card.addView(action("Configura els calendaris") { calendarHelp() })
             }
             active.isEmpty() -> card.addView(action("Escull els calendaris que vols veure") { calendarPicker() })
-            events.isEmpty() -> card.addView(text("Tens espai per a tu.\nCap acte els pròxims 7 dies.", 20f))
+            events.isEmpty() -> card.addView(text(if (count == 1) "Cap acte els pròxims 7 dies." else "Tens espai per a tu.\nCap acte els pròxims 7 dies.", if (count == 1) 16f else 20f))
             else -> events.take(count).forEach { event ->
                 val source = sources.find { it.id == event.calendarId }
-                val row = column().apply { setPadding(dp(10), dp(12), dp(2), dp(12)) }
+                val row = column().apply { setPadding(dp(10), dp(if (count == 1) 6 else 12), dp(2), dp(if (count == 1) 6 else 12)) }
                 row.addView(caption(event.time(), MetroStyle.mint))
-                row.addView(text(event.title, 21f))
+                row.addView(text(event.title, if (count == 1) 18f else 21f).apply {
+                    if (count == 1) { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
+                })
                 row.addView(text(listOfNotNull(source?.provider, source?.name).joinToString(" · "), 12f, MetroStyle.blue))
-                if (event.location.isNotBlank()) row.addView(text(event.location, 13f, MetroStyle.muted))
+                if (count > 1 && event.location.isNotBlank()) row.addView(text(event.location, 13f, MetroStyle.muted))
                 val eventLine = LinearLayout(this)
                 eventLine.addView(View(this).apply { setBackgroundColor(if (source?.provider == "Google") MetroStyle.mint else MetroStyle.blue) }, LinearLayout.LayoutParams(dp(2), -1))
                 eventLine.addView(row, LinearLayout.LayoutParams(0, -2, 1f))
