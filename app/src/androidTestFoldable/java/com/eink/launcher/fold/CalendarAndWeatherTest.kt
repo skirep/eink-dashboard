@@ -88,9 +88,12 @@ class CalendarAndWeatherTest {
                 device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/agenda-test-fixtures.png")
                 requireNotNull(device.findObject(By.text("Calendaris"))).click()
                 assertTrue(device.wait(Until.hasObject(By.text("Google + Outlook")), 10000))
-                requireNotNull(device.findObject(By.textContains("Outlook / Microsoft · Outlook"))).click()
-                requireNotNull(device.findObject(By.text("Desa"))).click()
-                assertTrue(device.wait(Until.gone(By.text("Reunió de prova Outlook")), 10000))
+                device.waitForIdle()
+                // Resolve the node at click time: modal accessibility nodes can be recreated.
+                device.findObject(UiSelector().textContains("Outlook / Microsoft · Outlook")).click()
+                device.findObject(UiSelector().text("Desa")).click()
+                assertTrue(device.wait(Until.hasObject(By.text("Google · 1    Outlook · 0")), 10000))
+                assertFalse(device.hasObject(By.text("Reunió de prova Outlook")))
                 assertTrue(device.hasObject(By.text("Reunió de prova Google")))
             }
         } finally {
