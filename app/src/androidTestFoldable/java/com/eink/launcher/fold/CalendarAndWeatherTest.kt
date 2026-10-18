@@ -91,7 +91,7 @@ class CalendarAndWeatherTest {
                 device.waitForIdle()
                 // Resolve the node at click time: modal accessibility nodes can be recreated.
                 device.findObject(UiSelector().textContains("Outlook / Microsoft · Outlook")).click()
-                device.findObject(UiSelector().text("Desa")).click()
+                device.findObject(UiSelector().resourceId("android:id/button1")).click()
                 assertTrue(device.wait(Until.hasObject(By.text("Google · 1    Outlook · 0")), 10000))
                 assertFalse(device.hasObject(By.text("Reunió de prova Outlook")))
                 assertTrue(device.hasObject(By.text("Reunió de prova Google")))
