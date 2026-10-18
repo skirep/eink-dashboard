@@ -429,7 +429,7 @@ class FoldActivity : AppCompatActivity() {
         show(0)
         body.addView(stage, LinearLayout.LayoutParams(-1, dp(320)))
         val choices = LinearLayout(this)
-        scenes.forEachIndexed { i, label -> choices.addView(action(label) { show(i) }, LinearLayout.LayoutParams(0, dp(48), 1f)) }
+        scenes.forEachIndexed { i, label -> choices.addView(action(label) { show(i) }.apply { textSize = 12f; setPadding(dp(2), dp(6), dp(2), dp(6)) }, LinearLayout.LayoutParams(0, dp(48), 1f)) }
         body.addView(choices)
         AlertDialog.Builder(this).setTitle("Paisatges vius / Cabrils").setView(body)
             .setMessage("Mostres visuals. El fons d’inici segueix el temps real de Cabrils. Mou el dit per veure la profunditat.")
