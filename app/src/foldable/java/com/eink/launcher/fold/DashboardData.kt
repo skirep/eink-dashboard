@@ -44,7 +44,7 @@ internal object DashboardData {
             CalendarContract.Instances.EVENT_ID, CalendarContract.Instances.TITLE,
             CalendarContract.Instances.BEGIN, CalendarContract.Instances.END,
             CalendarContract.Instances.ALL_DAY, CalendarContract.Instances.EVENT_LOCATION, CalendarContract.Instances.CALENDAR_ID
-        ), "${CalendarContract.Instances.STATUS} != ? AND $filter", args, "${CalendarContract.Instances.BEGIN} ASC")?.use { c ->
+        ), "(${CalendarContract.Instances.STATUS} IS NULL OR ${CalendarContract.Instances.STATUS} != ?) AND $filter", args, "${CalendarContract.Instances.BEGIN} ASC")?.use { c ->
             while (c.moveToNext() && events.size < 40) {
                 events += AgendaEvent(c.getLong(0), c.getString(1) ?: "Sense títol", c.getLong(2), c.getLong(3), c.getInt(4) == 1, c.getString(5) ?: "", c.getLong(6))
             }

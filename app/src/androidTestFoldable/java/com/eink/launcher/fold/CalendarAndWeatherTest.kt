@@ -64,6 +64,8 @@ class CalendarAndWeatherTest {
                 put(CalendarContract.Events.DTSTART, System.currentTimeMillis() + offset)
                 put(CalendarContract.Events.DTEND, System.currentTimeMillis() + offset + 1800000)
                 put(CalendarContract.Events.EVENT_TIMEZONE, "Europe/Madrid")
+                // Test a provider with an unspecified status as well as a confirmed event.
+                if (type != "com.google") put(CalendarContract.Events.STATUS, CalendarContract.Events.STATUS_CONFIRMED)
             })!!
             return id
         }
