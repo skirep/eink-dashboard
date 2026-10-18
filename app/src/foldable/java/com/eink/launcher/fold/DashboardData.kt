@@ -10,7 +10,12 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 internal data class AgendaEvent(val id: Long, val title: String, val start: Long, val end: Long, val allDay: Boolean, val location: String) {
-    fun time(): String = if (allDay) "Tot el dia" else SimpleDateFormat("EEE d · HH:mm", Locale("ca")).format(Date(start))
+    fun time(): String {
+        val format = SimpleDateFormat(if (allDay) "EEE d · 'Tot el dia'" else "EEE d · HH:mm", Locale("ca"))
+        // CalendarContract stores all-day boundaries in UTC, not local midnight.
+        if (allDay) format.timeZone = TimeZone.getTimeZone("UTC")
+        return format.format(Date(start))
+    }
 }
 
 internal object DashboardData {
