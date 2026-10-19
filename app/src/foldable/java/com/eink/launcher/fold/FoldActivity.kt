@@ -32,11 +32,21 @@ import kotlinx.coroutines.flow.collect
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
+import kotlin.math.abs
+import android.provider.Telephony
 
 class FoldActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("fold-metro", MODE_PRIVATE) }
     private val weatherStore by lazy { WeatherStore(prefs) }
     private var hinge: FoldingFeature? = null
+    private var gestureX = 0f
+    private var gestureY = 0f
+    private var gestureAllowed = false
+    private var gestureConsumed = false
+    private var homePrompt: View? = null
+    private val homeRole = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        homePrompt?.visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
+    }
     private var appDrawer = false
     private var search = ""
     private var events = emptyList<AgendaEvent>()
@@ -112,7 +122,10 @@ class FoldActivity : AppCompatActivity() {
         }, ContextCompat.RECEIVER_NOT_EXPORTED)
         handler.post(tick)
     }
-    override fun onResume() { super.onResume(); refreshAgenda() }
+    override fun onResume() {
+        super.onResume(); refreshAgenda()
+        homePrompt?.visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
+    }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus && dataRenderPending && !appDrawer) { dataRenderPending = false; render() }
@@ -133,6 +146,44 @@ class FoldActivity : AppCompatActivity() {
         super.onSaveInstanceState(out)
     }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); appDrawer = false; search = ""; entrancePending = true; render() }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                gestureX = event.x; gestureY = event.y; gestureConsumed = false
+                val bounds = android.graphics.Rect()
+                val editing = currentFocus as? EditText
+                val inEditor = editing?.getGlobalVisibleRect(bounds) == true && bounds.contains(event.rawX.toInt(), event.rawY.toInt())
+                // Leave Android's edge navigation and text selection to their owners.
+                gestureAllowed = hasWindowFocus() && !inEditor && event.x > dp(24) && event.x < resources.displayMetrics.widthPixels - dp(24)
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> gestureAllowed = false
+            MotionEvent.ACTION_MOVE -> if (!gestureConsumed && gestureAllowed) {
+                val dx = event.x - gestureX; val dy = event.y - gestureY
+                if (abs(dy) > dp(24) && abs(dy) > abs(dx)) gestureAllowed = false
+                if (abs(dx) > dp(64) && abs(dx) > abs(dy) * 1.7f && ((!appDrawer && dx > 0) || (appDrawer && dx < 0))) {
+                    val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
+                    super.dispatchTouchEvent(cancel); cancel.recycle()
+                    gestureConsumed = true; gestureAllowed = false
+                    showApps(!appDrawer)
+                }
+            }
+        }
+        val consumed = gestureConsumed
+        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            gestureAllowed = false; gestureConsumed = false
+        }
+        return if (consumed) true else super.dispatchTouchEvent(event)
+    }
+
+    private fun showApps(show: Boolean) {
+        if (appDrawer == show) return
+        (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+            .hideSoftInputFromWindow(window.decorView.windowToken, 0)
+        appDrawer = show
+        if (!show) search = ""
+        render()
+    }
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).roundToInt()
     private fun clockText() = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
@@ -194,7 +245,11 @@ class FoldActivity : AppCompatActivity() {
             wide -> "Vista ampla"
             else -> "Vista compacta"
         }
-        root.addView(caption(mode, MetroStyle.blue), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4); bottomMargin = dp(12) })
+        root.addView(caption(if (appDrawer) "TOTES LES APLICACIONS · llisca ← per tornar" else "$mode · llisca → per veure les apps", MetroStyle.blue).apply {
+            contentDescription = if (appDrawer) "Torna a l’inici" else "Mostra totes les aplicacions"
+            isFocusable = true
+            setOnClickListener { showApps(!appDrawer) }
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4); bottomMargin = dp(12) })
         if (appDrawer) renderDrawer(root) else {
             val left = column(); val right = column()
             addWeather(left, wide, animate)
@@ -202,13 +257,19 @@ class FoldActivity : AppCompatActivity() {
             block(left, caption("EL TEU ESPAI"), 7)
             addFavorites(left, if (wide) 3 else FoldPolicy.columns(width), animate)
             if (wide) addAgenda(right, 12, animate)
-            if (!isDefaultHome()) block(right, action("Estableix com a inici") { chooseHome() })
+            homePrompt = action("Estableix com a inici") { chooseHome() }.apply {
+                visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
+            }
+            block(right, homePrompt!!)
             if (wide) block(right, text("Mantén premut un mosaic per personalitzar-lo.", 12f, MetroStyle.muted))
             addPanels(root, left, right, wide)
         }
         val dock = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8), 0, 0) }
-        dock.addView(action(if (appDrawer) "← Inici" else "Aplicacions  ↗") { appDrawer = !appDrawer; render() }, LinearLayout.LayoutParams(0, dp(48), 1.2f).apply { rightMargin = dp(8) })
-        dock.addView(action("Calendaris") { calendarPicker() }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        listOf("Trucades" to { open(Intent(Intent.ACTION_DIAL)) },
+            "SMS" to { openMessages() }, "Calendaris" to { calendarPicker() }).forEachIndexed { index, (label, click) ->
+            dock.addView(action(label, click).apply { setPadding(dp(4), dp(6), dp(4), dp(6)) },
+                LinearLayout.LayoutParams(0, dp(48), 1f).apply { if (index < 2) rightMargin = dp(8) })
+        }
         root.addView(dock)
         setContentView(surface)
     }
@@ -531,11 +592,16 @@ class FoldActivity : AppCompatActivity() {
     }
     private fun openPackage(name: String) { val intent = packageManager.getLaunchIntentForPackage(name); if (intent != null) open(intent) else Toast.makeText(this, "L’aplicació no està instal·lada", Toast.LENGTH_LONG).show() }
     private fun open(intent: Intent) { try { startActivity(intent) } catch (e: Exception) { Toast.makeText(this, "No hi ha cap aplicació disponible per obrir-ho", Toast.LENGTH_LONG).show() } }
+    private fun openMessages() {
+        val messaging = Telephony.Sms.getDefaultSmsPackage(this)?.let { packageManager.getLaunchIntentForPackage(it) }
+        open(messaging ?: Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MESSAGING))
+    }
     private fun isDefaultHome() = packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName == packageName
     private fun chooseHome() {
         if (Build.VERSION.SDK_INT >= 29) {
             val roles = getSystemService(RoleManager::class.java)
-            if (roles.isRoleAvailable(RoleManager.ROLE_HOME) && !roles.isRoleHeld(RoleManager.ROLE_HOME)) { open(roles.createRequestRoleIntent(RoleManager.ROLE_HOME)); return }
+            if (roles.isRoleAvailable(RoleManager.ROLE_HOME) && !roles.isRoleHeld(RoleManager.ROLE_HOME)) { try { homeRole.launch(roles.createRequestRoleIntent(RoleManager.ROLE_HOME)); return }
+                catch (_: ActivityNotFoundException) { /* OEM fallback below. */ } }
         }
         open(Intent(Settings.ACTION_HOME_SETTINGS))
     }

@@ -52,7 +52,17 @@ class FoldSmokeTest {
                 resize("2100x2340")
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista ampla")), 15000))
                 screenshot("expanded")
-                device.findObject(UiSelector().textContains("Aplicacions")).click()
+                assertTrue(device.hasObject(By.text("Trucades")))
+                assertTrue(device.hasObject(By.text("SMS")))
+                assertFalse(device.hasObject(By.text("Aplicacions  ↗")))
+                val w = device.displayWidth; val h = device.displayHeight
+                device.swipe(w / 4, h / 2, w * 3 / 4, h / 2, 25)
+                assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 10000))
+                assertTrue(device.hasObject(By.text("Trucades")))
+                assertTrue(device.hasObject(By.text("SMS")))
+                device.swipe(w * 3 / 4, h / 2, w / 4, h / 2, 25)
+                assertTrue(device.wait(Until.hasObject(By.text("Cabrils")), 10000))
+                device.swipe(w / 4, h / 2, w * 3 / 4, h / 2, 25)
                 val query = "zzzz-test-search"
                 assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 10000))
                 device.findObject(UiSelector().className("android.widget.EditText")).setText(query)
@@ -61,8 +71,16 @@ class FoldSmokeTest {
                 scenario.recreate()
                 assertTrue(device.wait(Until.hasObject(By.text(query)), 15000))
                 screenshot("search-restored")
+                assertTrue(device.hasObject(By.text("Trucades")))
+                assertTrue(device.hasObject(By.text("SMS")))
                 // Activity survives actual viewport changes and process-style recreation.
                 scenario.onActivity { activity ->
+                    val home = android.content.Intent(android.content.Intent.ACTION_MAIN)
+                        .addCategory(android.content.Intent.CATEGORY_HOME)
+                        .addCategory(android.content.Intent.CATEGORY_DEFAULT).setPackage(activity.packageName)
+                    assertTrue(activity.packageManager.queryIntentActivities(home, 0).any {
+                        it.activityInfo.name == FoldActivity::class.java.name && it.activityInfo.exported
+                    })
                     assertFalse(activity.isFinishing)
                     assertEquals("com.eink.launcher.foldable", activity.packageName)
                 }
