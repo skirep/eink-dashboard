@@ -9,6 +9,9 @@ import androidx.viewpager.widget.ViewPager
 
 /** Native horizontal paging, including empty areas around vertical page content. */
 internal class LauncherPager(context: Context) : ViewPager(context) {
+    private var startX = 0f
+    private var startY = 0f
+    private var startPage = 0
     var pointerDown = false
         private set
     var pagingState: Int = SCROLL_STATE_IDLE
@@ -29,8 +32,22 @@ internal class LauncherPager(context: Context) : ViewPager(context) {
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) pointerDown = true
-        return try { super.dispatchTouchEvent(event) } finally {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            pointerDown = true
+            startX = event.x; startY = event.y; startPage = currentItem
+        }
+        val dx = event.x - startX
+        val dy = event.y - startY
+        val commit = event.actionMasked == MotionEvent.ACTION_UP &&
+            kotlin.math.abs(dx) > width * .18f && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.3f
+        return try {
+            val handled = super.dispatchTouchEvent(event)
+            // Commit a deliberate page-length drag independently of nested child
+            // velocity tracking. Native ViewPager still draws and animates the pages.
+            if (commit) setCurrentItem((startPage + if (dx < 0) 1 else -1)
+                .coerceIn(0, (adapter?.count ?: 1) - 1), true)
+            handled
+        } finally {
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) pointerDown = false
         }
     }
