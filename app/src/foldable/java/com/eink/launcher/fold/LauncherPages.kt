@@ -22,6 +22,12 @@ internal class LauncherPager(context: Context) : ViewPager(context) {
     // must not claim the launcher gesture before ViewPager can intercept it.
     override fun canScroll(v: View, checkV: Boolean, dx: Int, x: Int, y: Int) = false
 
+    // Vertical children may disallow interception on DOWN. Keep receiving moves:
+    // ViewPager itself locks vertical gestures to the child once direction is known.
+    override fun requestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
+        if (!disallowIntercept) super.requestDisallowInterceptTouchEvent(false)
+    }
+
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (event.actionMasked == MotionEvent.ACTION_DOWN) pointerDown = true
         return try { super.dispatchTouchEvent(event) } finally {

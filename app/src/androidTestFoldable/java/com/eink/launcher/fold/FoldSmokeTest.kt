@@ -74,7 +74,8 @@ class FoldSmokeTest {
                         activity.window.callback = object : android.view.Window.Callback by original {
                             override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
                                 val handled = original.dispatchTouchEvent(event)
-                                trace.add("${event.actionMasked}@${event.x.toInt()},${event.y.toInt()}/raw=${event.rawX.toInt()},${event.rawY.toInt()}/$handled")
+                                val active = findPager(activity.window.decorView)
+                                trace.add("${event.actionMasked}@${event.x.toInt()},${event.y.toInt()}/raw=${event.rawX.toInt()},${event.rawY.toInt()}/$handled/pager=${active?.hashCode()},down=${active?.pointerDown},state=${active?.pagingState}")
                                 return handled
                             }
                         }
