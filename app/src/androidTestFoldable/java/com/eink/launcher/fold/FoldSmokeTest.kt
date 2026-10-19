@@ -4,7 +4,7 @@ import androidx.test.core.app.ActivityScenario
 import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
-import androidx.viewpager2.widget.ViewPager2
+import androidx.viewpager.widget.ViewPager
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -61,8 +61,8 @@ class FoldSmokeTest {
                 assertTrue(device.hasObject(By.text("Trucades")))
                 assertTrue(device.hasObject(By.text("SMS")))
                 assertFalse(device.hasObject(By.text("Aplicacions  ↗")))
-                fun findPager(view: View): ViewPager2? {
-                    if (view is ViewPager2) return view
+                fun findPager(view: View): LauncherPager? {
+                    if (view is LauncherPager) return view
                     if (view is ViewGroup) for (i in 0 until view.childCount) findPager(view.getChildAt(i))?.let { return it }
                     return null
                 }
@@ -73,8 +73,8 @@ class FoldSmokeTest {
                         val check = object : Runnable {
                             override fun run() {
                                 val pager = findPager(activity.window.decorView) ?: return
-                                actual = "page=${pager.currentItem}, state=${pager.scrollState}, bounds=${pager.width}x${pager.height}, focus=${activity.hasWindowFocus()}, back=${pager.canScrollHorizontally(-1)}"
-                                if (activity.hasWindowFocus() && pager.isLaidOut && pager.currentItem == position && pager.scrollState == ViewPager2.SCROLL_STATE_IDLE) ready.countDown()
+                                actual = "page=${pager.currentItem}, state=${pager.pagingState}, bounds=${pager.width}x${pager.height}, focus=${activity.hasWindowFocus()}, back=${pager.canScrollHorizontally(-1)}"
+                                if (activity.hasWindowFocus() && pager.isLaidOut && pager.currentItem == position && pager.pagingState == ViewPager.SCROLL_STATE_IDLE) ready.countDown()
                                 else if (!activity.isDestroyed && ready.count > 0) activity.window.decorView.postDelayed(this, 50)
                             }
                         }

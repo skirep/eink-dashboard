@@ -33,7 +33,7 @@ import kotlinx.coroutines.flow.collect
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
-import androidx.viewpager2.widget.ViewPager2
+import androidx.viewpager.widget.ViewPager
 import android.provider.Telephony
 
 class FoldActivity : AppCompatActivity() {
@@ -59,7 +59,7 @@ class FoldActivity : AppCompatActivity() {
         }
     }
     private var hinge: FoldingFeature? = null
-    private var pages: ViewPager2? = null
+    private var pages: LauncherPager? = null
     private var homePrompt: View? = null
     private val homeRole = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         homePrompt?.visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
@@ -150,7 +150,7 @@ class FoldActivity : AppCompatActivity() {
     }
     private fun renderData() {
         // Data updates must not replace a focused search field or disturb an open dialog.
-        if (appDrawer || !hasWindowFocus() || (pages?.scrollState ?: ViewPager2.SCROLL_STATE_IDLE) != ViewPager2.SCROLL_STATE_IDLE) dataRenderPending = true else render()
+        if (appDrawer || !hasWindowFocus() || (pages?.pagingState ?: ViewPager.SCROLL_STATE_IDLE) != ViewPager.SCROLL_STATE_IDLE) dataRenderPending = true else render()
     }
     override fun onStop() {
         handler.removeCallbacks(tick); unregisterReceiver(packageReceiver)
@@ -265,9 +265,8 @@ class FoldActivity : AppCompatActivity() {
             addPanels(homePage, left, right, wide)
         }
         val selectedPage = if (appDrawer) 1 else 0
-        val pager = ViewPager2(this).apply {
+        val pager = LauncherPager(this).apply {
             layoutDirection = View.LAYOUT_DIRECTION_LTR
-            orientation = ViewPager2.ORIENTATION_HORIZONTAL
             offscreenPageLimit = 1
             adapter = LauncherPages(listOf(homePage, appsPage))
             setCurrentItem(selectedPage, false)
@@ -281,7 +280,7 @@ class FoldActivity : AppCompatActivity() {
             appsTab.setTextColor(if (position == 1) MetroStyle.mint else MetroStyle.blue)
         }
         updateNavigation(selectedPage)
-        pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+        pager.addOnPageChangeListener(object : ViewPager.SimpleOnPageChangeListener() {
             override fun onPageSelected(position: Int) {
                 appDrawer = position == 1
                 updateNavigation(position)
@@ -289,8 +288,8 @@ class FoldActivity : AppCompatActivity() {
                     .hideSoftInputFromWindow(window.decorView.windowToken, 0)
             }
             override fun onPageScrollStateChanged(state: Int) {
-                if (state == ViewPager2.SCROLL_STATE_IDLE && !appDrawer && dataRenderPending && hasWindowFocus()) {
-                    pager.post { if (pages === pager && !appDrawer && pager.scrollState == ViewPager2.SCROLL_STATE_IDLE) renderData() }
+                if (state == ViewPager.SCROLL_STATE_IDLE && !appDrawer && dataRenderPending && hasWindowFocus()) {
+                    pager.post { if (pages === pager && !appDrawer && pager.pagingState == ViewPager.SCROLL_STATE_IDLE) renderData() }
                 }
             }
         })
