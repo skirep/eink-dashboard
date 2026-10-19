@@ -146,11 +146,11 @@ class FoldActivity : AppCompatActivity() {
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && dataRenderPending && !appDrawer) { dataRenderPending = false; render() }
+        if (hasFocus && dataRenderPending && !appDrawer) renderData()
     }
     private fun renderData() {
         // Data updates must not replace a focused search field or disturb an open dialog.
-        if (appDrawer || !hasWindowFocus() || pages?.scrollState != ViewPager2.SCROLL_STATE_IDLE) dataRenderPending = true else render()
+        if (appDrawer || !hasWindowFocus() || (pages?.scrollState ?: ViewPager2.SCROLL_STATE_IDLE) != ViewPager2.SCROLL_STATE_IDLE) dataRenderPending = true else render()
     }
     override fun onStop() {
         handler.removeCallbacks(tick); unregisterReceiver(packageReceiver)
