@@ -62,6 +62,7 @@ internal class WeatherScene(
     override fun onDraw(c: Canvas) {
         super.onDraw(c)
         if (width == 0 || height == 0) return
+        p.alpha = 255
         val moving = canMove()
         val t = if (moving) (SystemClock.uptimeMillis() % 360000L) / 1000f else 0f
         val reveal = if (moving && unfold) (1f - ((SystemClock.uptimeMillis() - born) / 950f).coerceIn(0f, 1f)).pow(3) else 0f
@@ -73,7 +74,7 @@ internal class WeatherScene(
         val top = when { !known -> 0xff101c38; night -> 0xff091126; wet || snow -> 0xff203447; else -> 0xff123b63 }.toInt()
         val horizon = when { !known -> 0xff243652; night -> 0xff34456b; wet || snow -> 0xff648084; else -> 0xffc58a72 }.toInt()
         if (wallpaper == null) {
-        p.shader = LinearGradient(0f, 0f, w * .55f, h, intArrayOf(top, horizon, 0xff102a38.toInt()), floatArrayOf(0f, .62f, 1f), Shader.TileMode.CLAMP)
+        p.alpha = 255; p.shader = LinearGradient(0f, 0f, w * .55f, h, intArrayOf(top, horizon, 0xff102a38.toInt()), floatArrayOf(0f, .62f, 1f), Shader.TileMode.CLAMP)
         c.drawPaint(p); p.shader = null
         }
         c.save()
@@ -92,7 +93,7 @@ internal class WeatherScene(
         val atmosphere = wallpaper == null || weatherOverlay
         if (known && atmosphere) {
             val sx = w * .79f; val sy = h * .22f; val r = min(w, h) * .075f
-            p.shader = RadialGradient(sx, sy, r * 4.5f, intArrayOf(if (night) 0x6084adff else 0x70ffd6a2, 0x00ffd6a2), null, Shader.TileMode.CLAMP)
+            p.alpha = 255; p.shader = RadialGradient(sx, sy, r * 4.5f, intArrayOf(if (night) 0x6084adff else 0x70ffd6a2, 0x00ffd6a2), null, Shader.TileMode.CLAMP)
             c.drawCircle(sx, sy, r * 4.5f, p); p.shader = null
             if (wallpaper == null && code <= 2) {
                 p.color = if (night) 0xffe3edff.toInt() else 0xffffe3b2.toInt(); c.drawCircle(sx, sy, r, p)
@@ -107,7 +108,7 @@ internal class WeatherScene(
         if (atmosphere && (cloudy || !known)) for (i in 0..6) {
             val x = w * (((i * .31f + t * (.0009f + i * .00015f)) % 1.7f) - .35f)
             val y = h * (.12f + i * .067f)
-            p.shader = RadialGradient(x, y, w * .48f, intArrayOf(if (night) 0x305f7395 else 0x509fbac4, 0x009fbac4), null, Shader.TileMode.CLAMP)
+            p.alpha = 255; p.shader = RadialGradient(x, y, w * .48f, intArrayOf(if (night) 0x305f7395 else 0x509fbac4, 0x009fbac4), null, Shader.TileMode.CLAMP)
             c.save(); c.scale(1.8f, .24f, x, y); c.drawCircle(x, y, w * .48f, p); c.restore()
         }
         p.shader = null
@@ -122,7 +123,7 @@ internal class WeatherScene(
                 path.lineTo(x, base + (wave * h).toFloat() + driftY * layer * 7f)
             }
             path.lineTo(w * 1.1f, h * 1.2f); path.close()
-            p.shader = LinearGradient(0f, base - h * .08f, 0f, h, intArrayOf(
+            p.alpha = 255; p.shader = LinearGradient(0f, base - h * .08f, 0f, h, intArrayOf(
                 when(layer) { 0 -> 0xff456778; 1 -> 0xff244c5b; 2 -> 0xff13323e; else -> 0xff081b29 }.toInt(), 0xff07101e.toInt()), null, Shader.TileMode.CLAMP)
             c.save(); c.translate(driftX * layer * 12f + reveal * (layer - 1) * w * .08f, 0f); c.drawPath(path, p); c.restore()
         }
@@ -138,7 +139,7 @@ internal class WeatherScene(
         }
         c.restore()
         // Text contrast and OLED-friendly edges over every condition.
-        p.shader = LinearGradient(0f, 0f, 0f, h, intArrayOf(0x8c060d1b.toInt(), 0x18060d1b, 0xb3060d1b.toInt()), floatArrayOf(0f, .42f, 1f), Shader.TileMode.CLAMP)
+        p.alpha = 255; p.shader = LinearGradient(0f, 0f, 0f, h, intArrayOf(0x8c060d1b.toInt(), 0x18060d1b, 0xb3060d1b.toInt()), floatArrayOf(0f, .42f, 1f), Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w, h, p); p.shader = null
     }
 }
