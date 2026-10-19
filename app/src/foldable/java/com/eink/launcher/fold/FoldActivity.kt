@@ -33,7 +33,7 @@ import kotlinx.coroutines.flow.collect
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
-import kotlin.math.abs
+import androidx.viewpager2.widget.ViewPager2
 import android.provider.Telephony
 
 class FoldActivity : AppCompatActivity() {
@@ -59,10 +59,7 @@ class FoldActivity : AppCompatActivity() {
         }
     }
     private var hinge: FoldingFeature? = null
-    private var gestureX = 0f
-    private var gestureY = 0f
-    private var gestureAllowed = false
-    private var gestureConsumed = false
+    private var pages: ViewPager2? = null
     private var homePrompt: View? = null
     private val homeRole = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         homePrompt?.visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
@@ -153,7 +150,7 @@ class FoldActivity : AppCompatActivity() {
     }
     private fun renderData() {
         // Data updates must not replace a focused search field or disturb an open dialog.
-        if (appDrawer || !hasWindowFocus()) dataRenderPending = true else render()
+        if (appDrawer || !hasWindowFocus() || pages?.scrollState != ViewPager2.SCROLL_STATE_IDLE) dataRenderPending = true else render()
     }
     override fun onStop() {
         handler.removeCallbacks(tick); unregisterReceiver(packageReceiver)
@@ -168,42 +165,10 @@ class FoldActivity : AppCompatActivity() {
     }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); appDrawer = false; search = ""; entrancePending = true; render() }
 
-    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                gestureX = event.x; gestureY = event.y; gestureConsumed = false
-                val bounds = android.graphics.Rect()
-                val editing = currentFocus as? EditText
-                val inEditor = editing?.getGlobalVisibleRect(bounds) == true && bounds.contains(event.rawX.toInt(), event.rawY.toInt())
-                // Leave Android's edge navigation and text selection to their owners.
-                gestureAllowed = hasWindowFocus() && !inEditor && event.x > dp(24) && event.x < resources.displayMetrics.widthPixels - dp(24)
-            }
-            MotionEvent.ACTION_POINTER_DOWN -> gestureAllowed = false
-            MotionEvent.ACTION_MOVE -> if (!gestureConsumed && gestureAllowed) {
-                val dx = event.x - gestureX; val dy = event.y - gestureY
-                if (abs(dy) > dp(24) && abs(dy) > abs(dx)) gestureAllowed = false
-                if (abs(dx) > dp(64) && abs(dx) > abs(dy) * 1.7f && ((!appDrawer && dx > 0) || (appDrawer && dx < 0))) {
-                    val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
-                    super.dispatchTouchEvent(cancel); cancel.recycle()
-                    gestureConsumed = true; gestureAllowed = false
-                    showApps(!appDrawer)
-                }
-            }
-        }
-        val consumed = gestureConsumed
-        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
-            gestureAllowed = false; gestureConsumed = false
-        }
-        return if (consumed) true else super.dispatchTouchEvent(event)
-    }
-
     private fun showApps(show: Boolean) {
-        if (appDrawer == show) return
         (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
             .hideSoftInputFromWindow(window.decorView.windowToken, 0)
-        appDrawer = show
-        if (!show) search = ""
-        render()
+        pages?.setCurrentItem(if (show) 1 else 0, effectsAllowed())
     }
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).roundToInt()
@@ -267,12 +232,25 @@ class FoldActivity : AppCompatActivity() {
             wide -> "Vista ampla"
             else -> "Vista compacta"
         }
-        root.addView(caption(if (appDrawer) "TOTES LES APLICACIONS · llisca ← per tornar" else "$mode · llisca → per veure les apps", MetroStyle.blue).apply {
-            contentDescription = if (appDrawer) "Torna a l’inici" else "Mostra totes les aplicacions"
-            isFocusable = true
-            setOnClickListener { showApps(!appDrawer) }
-        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4); bottomMargin = dp(12) })
-        if (appDrawer) renderDrawer(root) else {
+        val navigation = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val homeTab = caption("$mode · Inici", MetroStyle.mint).apply {
+            minimumHeight = dp(48); gravity = Gravity.CENTER_VERTICAL
+            contentDescription = "Pàgina inici"; isFocusable = true
+            setOnClickListener { showApps(false) }
+        }
+        val appsTab = caption("Aplicacions →", MetroStyle.blue).apply {
+            minimumHeight = dp(48); gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            contentDescription = "Pàgina aplicacions"; isFocusable = true
+            setOnClickListener { showApps(true) }
+        }
+        navigation.addView(homeTab, LinearLayout.LayoutParams(0, -2, 1f))
+        navigation.addView(appsTab, LinearLayout.LayoutParams(0, -2, 1f))
+        root.addView(navigation)
+        val homePage = column()
+        val appsPage = column()
+        appsPage.addView(caption("TOTES LES APLICACIONS", MetroStyle.mint))
+        renderDrawer(appsPage)
+        run {
             val left = column(); val right = column()
             addWeather(left, wide, animate)
             if (!wide) addAgenda(left, 1, animate)
@@ -284,8 +262,39 @@ class FoldActivity : AppCompatActivity() {
             }
             block(right, homePrompt!!)
             if (wide) block(right, text("Mantén premut un mosaic per personalitzar-lo.", 12f, MetroStyle.muted))
-            addPanels(root, left, right, wide)
+            addPanels(homePage, left, right, wide)
         }
+        val selectedPage = if (appDrawer) 1 else 0
+        val pager = ViewPager2(this).apply {
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
+            orientation = ViewPager2.ORIENTATION_HORIZONTAL
+            offscreenPageLimit = 1
+            adapter = LauncherPages(listOf(homePage, appsPage))
+            setCurrentItem(selectedPage, false)
+        }
+        pages = pager
+        fun updateNavigation(position: Int) {
+            homeTab.isSelected = position == 0; appsTab.isSelected = position == 1
+            homeTab.text = if (position == 0) "$mode · Inici" else "← Inici"
+            appsTab.text = if (position == 0) "Aplicacions →" else "Aplicacions · 2/2"
+            homeTab.setTextColor(if (position == 0) MetroStyle.mint else MetroStyle.muted)
+            appsTab.setTextColor(if (position == 1) MetroStyle.mint else MetroStyle.blue)
+        }
+        updateNavigation(selectedPage)
+        pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                appDrawer = position == 1
+                updateNavigation(position)
+                if (!appDrawer) (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+                    .hideSoftInputFromWindow(window.decorView.windowToken, 0)
+            }
+            override fun onPageScrollStateChanged(state: Int) {
+                if (state == ViewPager2.SCROLL_STATE_IDLE && !appDrawer && dataRenderPending && hasWindowFocus()) {
+                    pager.post { if (pages === pager && !appDrawer && pager.scrollState == ViewPager2.SCROLL_STATE_IDLE) renderData() }
+                }
+            }
+        })
+        root.addView(pager, LinearLayout.LayoutParams(-1, 0, 1f))
         val dock = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8), 0, 0) }
         listOf("Trucades" to { open(Intent(Intent.ACTION_DIAL)) },
             "SMS" to { openMessages() }, "Calendaris" to { calendarPicker() }).forEachIndexed { index, (label, click) ->

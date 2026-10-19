@@ -1,4 +1,4 @@
-# MagicFold / Magic V2 — v0.6
+# MagicFold / Magic V2 — v0.7
 
 Launcher Android amb estètica Windows 10 Mobile i mosaics translúcids amb vores de llum.
 El temps de **Cabrils** transforma el fons: paisatge en capes, núvols que es desplacen,
@@ -50,8 +50,10 @@ Identificador `com.eink.launcher.foldable`, independent de la variant e-ink.
 Pulsació llarga en una app per fixar-la o treure-la. **Trucades**, **SMS** i **Calendaris** queden fixos a la barra inferior, tant a inici
 com al llistat d’apps. Trucades obre el marcador sense trucar automàticament;
 SMS obre l’aplicació de missatgeria predeterminada.
-Llisca **cap a la dreta** per veure totes les apps amb cerca; cap a l’esquerra
-per tornar. El text indicatiu també és activable amb TalkBack o teclat.
+Les aplicacions són una **segona pàgina situada a la dreta** de l’inici.
+Llisca **cap a l’esquerra** per anar-hi; cap a la dreta per tornar a l’inici.
+La pàgina es mou amb el dit i queda fixada en acabar el gest. També pots prémer
+les etiquetes **Inici** i **Aplicacions →**, accessibles amb TalkBack o teclat.
 Els gestos verticals continuen desplaçant el contingut.
 A **Configuració → Launcher per defecte** pots seleccionar MagicFold com a inici;
 també apareix a Configuració d’Android → Aplicacions predeterminades → Aplicació d’inici.

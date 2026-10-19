@@ -56,13 +56,18 @@ class FoldSmokeTest {
                 assertTrue(device.hasObject(By.text("SMS")))
                 assertFalse(device.hasObject(By.text("Aplicacions  ↗")))
                 val w = device.displayWidth; val h = device.displayHeight
-                device.swipe(w / 4, h / 2, w * 3 / 4, h / 2, 25)
-                assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 10000))
+                device.swipe(w * 3 / 4, h / 2, w / 4, h / 2, 12)
+                assertTrue(device.wait(Until.hasObject(By.desc("Pàgina aplicacions").selected(true)), 10000))
+                assertTrue(device.hasObject(By.textContains("Camera")))
+                screenshot("applications-right-page")
                 assertTrue(device.hasObject(By.text("Trucades")))
                 assertTrue(device.hasObject(By.text("SMS")))
-                device.swipe(w * 3 / 4, h / 2, w / 4, h / 2, 25)
-                assertTrue(device.wait(Until.hasObject(By.text("Cabrils")), 10000))
-                device.swipe(w / 4, h / 2, w * 3 / 4, h / 2, 25)
+                device.swipe(w / 4, h / 2, w * 3 / 4, h / 2, 12)
+                assertTrue(device.wait(Until.hasObject(By.desc("Pàgina inici").selected(true)), 10000))
+                assertTrue(device.hasObject(By.text("Cabrils")))
+                // The visible page label is an alternative entry point, without a dock button.
+                device.findObject(UiSelector().description("Pàgina aplicacions")).click()
+                assertTrue(device.wait(Until.hasObject(By.desc("Pàgina aplicacions").selected(true)), 10000))
                 val query = "zzzz-test-search"
                 assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 10000))
                 device.findObject(UiSelector().className("android.widget.EditText")).setText(query)
@@ -70,7 +75,14 @@ class FoldSmokeTest {
                 assertTrue(device.wait(Until.hasObject(By.text(query)), 15000))
                 scenario.recreate()
                 assertTrue(device.wait(Until.hasObject(By.text(query)), 15000))
+                assertTrue(device.hasObject(By.desc("Pàgina aplicacions").selected(true)))
                 screenshot("search-restored")
+                // The same physical swipe must work in compact mode, even starting on a list row.
+                device.swipe(device.displayWidth / 4, device.displayHeight / 2, device.displayWidth * 3 / 4, device.displayHeight / 2, 12)
+                assertTrue(device.wait(Until.hasObject(By.desc("Pàgina inici").selected(true)), 10000))
+                device.swipe(device.displayWidth * 3 / 4, device.displayHeight / 2, device.displayWidth / 4, device.displayHeight / 2, 12)
+                assertTrue(device.wait(Until.hasObject(By.desc("Pàgina aplicacions").selected(true)), 10000))
+                assertTrue(device.hasObject(By.text(query)))
                 assertTrue(device.hasObject(By.text("Trucades")))
                 assertTrue(device.hasObject(By.text("SMS")))
                 // Activity survives actual viewport changes and process-style recreation.
