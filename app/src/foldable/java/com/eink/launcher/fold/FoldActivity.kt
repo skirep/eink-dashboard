@@ -150,7 +150,7 @@ class FoldActivity : AppCompatActivity() {
     }
     private fun renderData() {
         // Data updates must not replace a focused search field or disturb an open dialog.
-        if (appDrawer || !hasWindowFocus() || (pages?.pagingState ?: ViewPager.SCROLL_STATE_IDLE) != ViewPager.SCROLL_STATE_IDLE) dataRenderPending = true else render()
+        if (appDrawer || pages?.pointerDown == true || !hasWindowFocus() || (pages?.pagingState ?: ViewPager.SCROLL_STATE_IDLE) != ViewPager.SCROLL_STATE_IDLE) dataRenderPending = true else render()
     }
     override fun onStop() {
         handler.removeCallbacks(tick); unregisterReceiver(packageReceiver)
