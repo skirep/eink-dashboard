@@ -66,6 +66,21 @@ class FoldSmokeTest {
                     if (view is ViewGroup) for (i in 0 until view.childCount) findPager(view.getChildAt(i))?.let { return it }
                     return null
                 }
+                val trace = java.util.concurrent.ConcurrentLinkedQueue<String>()
+                var gesture = "none"
+                fun captureTouches() {
+                    scenario.onActivity { activity ->
+                        val original = requireNotNull(activity.window.callback)
+                        activity.window.callback = object : android.view.Window.Callback by original {
+                            override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+                                val handled = original.dispatchTouchEvent(event)
+                                trace.add("${event.actionMasked}@${event.x.toInt()},${event.y.toInt()}/raw=${event.rawX.toInt()},${event.rawY.toInt()}/$handled")
+                                return handled
+                            }
+                        }
+                    }
+                }
+                captureTouches()
                 fun assertPage(position: Int) {
                     val ready = CountDownLatch(1)
                     var actual = "unavailable"
@@ -73,7 +88,7 @@ class FoldSmokeTest {
                         val check = object : Runnable {
                             override fun run() {
                                 val pager = findPager(activity.window.decorView) ?: return
-                                actual = "page=${pager.currentItem}, state=${pager.pagingState}, bounds=${pager.width}x${pager.height}, focus=${activity.hasWindowFocus()}, back=${pager.canScrollHorizontally(-1)}"
+                                actual = "page=${pager.currentItem}, state=${pager.pagingState}, bounds=${pager.width}x${pager.height}, offset=${pager.scrollX}, count=${pager.adapter?.count}, focus=${activity.hasWindowFocus()}, back=${pager.canScrollHorizontally(-1)}"
                                 if (activity.hasWindowFocus() && pager.isLaidOut && pager.currentItem == position && pager.pagingState == ViewPager.SCROLL_STATE_IDLE) ready.countDown()
                                 else if (!activity.isDestroyed && ready.count > 0) activity.window.decorView.postDelayed(this, 50)
                             }
@@ -83,16 +98,24 @@ class FoldSmokeTest {
                     if (!ready.await(10, TimeUnit.SECONDS)) {
                         ready.countDown()
                         screenshot("failed-page-$position")
-                        fail("Expected page $position; $actual")
+                        fail("Expected page $position; $actual; $gesture; touches=$trace")
                     }
                 }
                 fun swipePage(toApps: Boolean) {
                     assertPage(if (toApps) 0 else 1)
+                    device.waitForIdle()
                     val bounds = Rect()
-                    scenario.onActivity { activity -> assertTrue(findPager(activity.window.decorView)!!.getGlobalVisibleRect(bounds)) }
+                    scenario.onActivity { activity ->
+                        val pager = findPager(activity.window.decorView)!!
+                        val location = IntArray(2); pager.getLocationOnScreen(location)
+                        bounds.set(location[0], location[1], location[0] + pager.width, location[1] + pager.height)
+                    }
+                    assertTrue(bounds.intersect(0, 0, device.displayWidth, device.displayHeight))
                     val left = bounds.left + bounds.width() / 5
                     val right = bounds.right - bounds.width() / 5
-                    device.swipe(if (toApps) right else left, bounds.centerY(), if (toApps) left else right, bounds.centerY(), 18)
+                    gesture = "toApps=$toApps, screen=$bounds, display=${device.displayWidth}x${device.displayHeight}"
+                    trace.clear()
+                    assertTrue("Touch injection failed: $gesture", device.swipe(if (toApps) right else left, bounds.centerY(), if (toApps) left else right, bounds.centerY(), 18))
                     assertPage(if (toApps) 1 else 0)
                 }
                 swipePage(true)
@@ -115,19 +138,8 @@ class FoldSmokeTest {
                 assertPage(1)
                 screenshot("search-restored")
                 // Native paging must also work after compact resize and Activity recreation.
-                val trace = java.util.concurrent.ConcurrentLinkedQueue<String>()
-                scenario.onActivity { activity ->
-                    val original = requireNotNull(activity.window.callback)
-                    activity.window.callback = object : android.view.Window.Callback by original {
-                        override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
-                            trace.add("${event.actionMasked}@${event.x.toInt()},${event.y.toInt()}")
-                            return original.dispatchTouchEvent(event)
-                        }
-                    }
-                }
-                try { swipePage(false) } catch (error: AssertionError) {
-                    throw AssertionError("${error.message}; window touches=$trace", error)
-                }
+                captureTouches()
+                swipePage(false)
                 swipePage(true)
                 assertTrue(device.hasObject(By.text(query)))
                 assertTrue(device.hasObject(By.text("Trucades")))
