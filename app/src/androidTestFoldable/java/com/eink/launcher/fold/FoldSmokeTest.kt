@@ -81,6 +81,7 @@ class FoldSmokeTest {
                     assertTrue(activity.packageManager.queryIntentActivities(home, 0).any {
                         it.activityInfo.name == FoldActivity::class.java.name && it.activityInfo.exported
                     })
+                    assertEquals("MagicFold", activity.packageManager.getApplicationLabel(activity.applicationInfo).toString())
                     assertFalse(activity.isFinishing)
                     assertEquals("com.eink.launcher.foldable", activity.packageName)
                 }

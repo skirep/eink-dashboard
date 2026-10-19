@@ -1,4 +1,4 @@
-name: Fold Metro APK
+name: MagicFold APK
 on:
   pull_request:
   workflow_dispatch:
@@ -21,12 +21,12 @@ jobs:
       - run: ./gradlew testFoldableDebugUnitTest assembleFoldableDebug lintFoldableDebug assembleEinkDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: Fold-Metro-Android
+          name: MagicFold-Android
           path: app/build/outputs/apk/foldable/debug/*.apk
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Fold-Metro-validation
+          name: MagicFold-validation
           path: |
             app/build/reports/tests/
             app/build/reports/lint-results-foldableDebug.html
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Fold-Metro-device-tests
+          name: MagicFold-device-tests
           path: |
             screenshots/
             app/build/reports/androidTests/

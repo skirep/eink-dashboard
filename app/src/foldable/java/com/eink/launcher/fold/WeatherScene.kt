@@ -16,10 +16,14 @@ internal class WeatherScene(
     private val code: Int,
     private val night: Boolean,
     private val motion: Boolean,
-    private val unfold: Boolean = false
+    private val unfold: Boolean = false,
+    val wallpaper: Bitmap? = null,
+    private val weatherOverlay: Boolean = true
 ) : FrameLayout(context) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val path = Path()
+    private val imagePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val imageBounds = RectF()
     private val born = SystemClock.uptimeMillis()
     private var touchX = 0f
     private var touchY = 0f
@@ -68,16 +72,29 @@ internal class WeatherScene(
         val known = code >= 0
         val top = when { !known -> 0xff101c38; night -> 0xff091126; wet || snow -> 0xff203447; else -> 0xff123b63 }.toInt()
         val horizon = when { !known -> 0xff243652; night -> 0xff34456b; wet || snow -> 0xff648084; else -> 0xffc58a72 }.toInt()
+        if (wallpaper == null) {
         p.shader = LinearGradient(0f, 0f, w * .55f, h, intArrayOf(top, horizon, 0xff102a38.toInt()), floatArrayOf(0f, .62f, 1f), Shader.TileMode.CLAMP)
         c.drawPaint(p); p.shader = null
+        }
         c.save()
         c.translate(driftX * w * .025f, driftY * h * .015f)
         c.scale(1.04f + reveal * .14f, 1.04f + reveal * .14f, w * .58f, h * .42f)
-        if (known) {
+        wallpaper?.let { image ->
+            val scale = max(w / image.width, h / image.height)
+            val iw = image.width * scale; val ih = image.height * scale
+            imageBounds.set((w - iw) / 2f, (h - ih) / 2f, (w + iw) / 2f, (h + ih) / 2f)
+            c.drawBitmap(image, null, imageBounds, imagePaint)
+            if (weatherOverlay && known) {
+                p.color = if (night) 0x55101a38 else 0x151a3549
+                c.drawRect(0f, 0f, w, h, p)
+            }
+        }
+        val atmosphere = wallpaper == null || weatherOverlay
+        if (known && atmosphere) {
             val sx = w * .79f; val sy = h * .22f; val r = min(w, h) * .075f
             p.shader = RadialGradient(sx, sy, r * 4.5f, intArrayOf(if (night) 0x6084adff else 0x70ffd6a2, 0x00ffd6a2), null, Shader.TileMode.CLAMP)
             c.drawCircle(sx, sy, r * 4.5f, p); p.shader = null
-            if (!wet && !snow) {
+            if (wallpaper == null && code <= 2) {
                 p.color = if (night) 0xffe3edff.toInt() else 0xffffe3b2.toInt(); c.drawCircle(sx, sy, r, p)
                 if (night) { p.color = top; c.drawCircle(sx + r * .40f, sy - r * .28f, r * .87f, p) }
             }
@@ -87,7 +104,7 @@ internal class WeatherScene(
             }
         }
         // Long translucent cloud bands, each drifting at a different speed.
-        if (cloudy || !known) for (i in 0..6) {
+        if (atmosphere && (cloudy || !known)) for (i in 0..6) {
             val x = w * (((i * .31f + t * (.0009f + i * .00015f)) % 1.7f) - .35f)
             val y = h * (.12f + i * .067f)
             p.shader = RadialGradient(x, y, w * .48f, intArrayOf(if (night) 0x305f7395 else 0x509fbac4, 0x009fbac4), null, Shader.TileMode.CLAMP)
@@ -95,7 +112,7 @@ internal class WeatherScene(
         }
         p.shader = null
         // Layered coastal relief, deliberately stylised rather than a claimed geographic map.
-        for (layer in 0..3) {
+        if (wallpaper == null) for (layer in 0..3) {
             val base = h * (.51f + layer * .115f)
             path.reset(); path.moveTo(-w * .1f, h * 1.2f)
             path.lineTo(-w * .1f, base)
@@ -110,7 +127,7 @@ internal class WeatherScene(
             c.save(); c.translate(driftX * layer * 12f + reveal * (layer - 1) * w * .08f, 0f); c.drawPath(path, p); c.restore()
         }
         p.shader = null
-        if (wet || snow) {
+        if (atmosphere && (wet || snow)) {
             p.strokeWidth = resources.displayMetrics.density * .65f
             for (i in 0 until if (snow) 48 else 70) {
                 val x = w * ((i * .618034f + if(snow) sin(t * .18f + i) * .015f else -t * .02f).let { it - floor(it) })

@@ -1,4 +1,4 @@
-# Fold Metro / Magic V2 — v0.5
+# MagicFold / Magic V2 — v0.6
 
 Launcher Android amb estètica Windows 10 Mobile i mosaics translúcids amb vores de llum.
 El temps de **Cabrils** transforma el fons: paisatge en capes, núvols que es desplacen,
@@ -43,9 +43,9 @@ Font de Microsoft: https://support.microsoft.com/en-us/outlook/how-do-i-sync-my-
 
 ## Instal·lació i ús
 
-Descarrega **Fold-Metro-Android** de la darrera execució correcta de
-[Fold Metro APK](https://github.com/skirep/eink-dashboard/actions/workflows/foldable.yml).
-Instal·la `app-foldable-debug.apk` i estableix **Fold Metro** com a inici.
+Descarrega **MagicFold-Android** de la darrera execució correcta de
+[MagicFold APK](https://github.com/skirep/eink-dashboard/actions/workflows/foldable.yml).
+Instal·la `app-foldable-debug.apk` i estableix **MagicFold** com a inici.
 Identificador `com.eink.launcher.foldable`, independent de la variant e-ink.
 Pulsació llarga en una app per fixar-la o treure-la. **Trucades**, **SMS** i **Calendaris** queden fixos a la barra inferior, tant a inici
 com al llistat d’apps. Trucades obre el marcador sense trucar automàticament;
@@ -53,7 +53,7 @@ SMS obre l’aplicació de missatgeria predeterminada.
 Llisca **cap a la dreta** per veure totes les apps amb cerca; cap a l’esquerra
 per tornar. El text indicatiu també és activable amb TalkBack o teclat.
 Els gestos verticals continuen desplaçant el contingut.
-A **Configuració → Launcher per defecte** pots seleccionar Fold Metro com a inici;
+A **Configuració → Launcher per defecte** pots seleccionar MagicFold com a inici;
 també apareix a Configuració d’Android → Aplicacions predeterminades → Aplicació d’inici.
 
 ## Adaptació al plegable
@@ -81,3 +81,18 @@ contenen actes de prova explícits, no dades personals reals ni una connexió a 
 
 Open-Meteo rep només coordenades de les ciutats seleccionades, amb atribució a l’app.
 El servei gratuït té condicions d’ús no comercial: https://open-meteo.com/en/terms
+
+## Imatge de fons personal
+
+**Configuració → Imatge de fons → Tria una imatge del mòbil** obre el selector
+d’Android. La foto s’adapta sense deformar-se: omple la pantalla amb retall central
+i manté un moviment suau de paral·laxi. Sobre la foto apareixen els núvols, la pluja,
+la neu i la llum de dia/nit de Cabrils; el paisatge dibuixat deixa de tapar-la.
+Pots desactivar aquests efectes sobre la foto o tornar al paisatge original.
+Les mostres de paisatges vius també previsualitzen els efectes sobre la foto escollida.
+
+S’importa una còpia privada de la imatge (màxim d’entrada 50 MB, costat de treball
+màxim 2048 píxels) amb orientació corregida. Es conserva després de reiniciar,
+sense dependre de la ubicació original. No es modifica ni es puja la foto original.
+Les imatges no vàlides mantenen el fons anterior. No es demanen permisos generals
+d’accés a la galeria. Una capa fosca manté els textos llegibles fins i tot amb fotos clares.

@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.content.res.Configuration
 import android.database.ContentObserver
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
 import android.net.Uri
@@ -38,6 +39,25 @@ import android.provider.Telephony
 class FoldActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("fold-metro", MODE_PRIVATE) }
     private val weatherStore by lazy { WeatherStore(prefs) }
+    private val wallpaperStore by lazy { WallpaperStore(this) }
+    private var wallpaper: Bitmap? = null
+    private var wallpaperJob: Job? = null
+    private val imagePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) importWallpaper(uri)
+    }
+    internal fun importWallpaper(uri: Uri) {
+        val pending = wallpaperJob
+        Toast.makeText(this, "Preparació de la imatge…", Toast.LENGTH_SHORT).show()
+        wallpaperJob = lifecycleScope.launch {
+            pending?.join()
+            try {
+                wallpaper = wallpaperStore.import(uri)
+                renderData()
+                Toast.makeText(this@FoldActivity, "Imatge de fons desada", Toast.LENGTH_SHORT).show()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { Toast.makeText(this@FoldActivity, "No s’ha pogut obrir la imatge. Tria’n una altra (màxim 50 MB).", Toast.LENGTH_LONG).show() }
+        }
+    }
     private var hinge: FoldingFeature? = null
     private var gestureX = 0f
     private var gestureY = 0f
@@ -114,6 +134,7 @@ class FoldActivity : AppCompatActivity() {
             }
         }
         render()
+        wallpaperJob = lifecycleScope.launch { wallpaper = wallpaperStore.load(); renderData() }
     }
     override fun onStart() {
         super.onStart()
@@ -224,12 +245,13 @@ class FoldActivity : AppCompatActivity() {
         entrancePending = false; renderedWide = wide
         val sky = weatherStore.snapshot("cabrils").data?.optJSONObject("current")
         val surface = WeatherScene(this, sky?.optInt("weather_code", -1) ?: -1,
-            sky?.optInt("is_day", 1) == 0, prefs.getBoolean("effects", true), animate)
+            sky?.optInt("is_day", 1) == 0, prefs.getBoolean("effects", true), animate,
+            wallpaper, prefs.getBoolean("photoWeather", true))
         val root = column().apply { setPadding(dp(20), dp(12), dp(20), dp(8)); fitsSystemWindows = true }
         surface.addView(root, FrameLayout.LayoutParams(-1, -1))
         val heading = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val title = column()
-        title.addView(caption("FOLD / METRO     ·     MAGIC V2", MetroStyle.mint))
+        title.addView(caption("MagicFold     ·     Magic V2", MetroStyle.mint))
         val hourLine = LinearLayout(this).apply { gravity = Gravity.BOTTOM }
         headerClock = text(clockText(), if (width < 420) 42f else 50f).also { hourLine.addView(it) }
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -466,15 +488,34 @@ class FoldActivity : AppCompatActivity() {
 
     private fun settings() {
         val effects = if (prefs.getBoolean("effects", true)) "activats" else "desactivats"
-        AlertDialog.Builder(this).setTitle("Fold Metro / Magic V2").setItems(arrayOf("Segona ciutat", "Calendaris Google i Outlook", "Efectes visuals: $effects", "Actualitza temps i agenda", "Launcher per defecte", "Configuració d’Android", "Prova els paisatges vius")) { _, item ->
+        AlertDialog.Builder(this).setTitle("MagicFold / Magic V2").setItems(arrayOf("Segona ciutat", "Calendaris Google i Outlook", "Efectes visuals: $effects", "Actualitza temps i agenda", "Launcher per defecte", "Configuració d’Android", "Prova els paisatges vius", "Imatge de fons")) { _, item ->
             when (item) {
                 0 -> cityDialog(); 1 -> calendarPicker()
                 2 -> { prefs.edit().putBoolean("effects", !prefs.getBoolean("effects", true)).apply(); entrancePending = true; render() }
                 3 -> { refreshWeather(true); refreshAgenda() }; 4 -> chooseHome(); 5 -> open(Intent(Settings.ACTION_SETTINGS))
                 6 -> previewWeather()
+                7 -> wallpaperSettings()
             }
         }.show()
     }
+    internal fun wallpaperSettings() {
+        if (wallpaperJob?.isActive == true) {
+            Toast.makeText(this, "S’està preparant la imatge…", Toast.LENGTH_SHORT).show(); return
+        }
+        val overlay = prefs.getBoolean("photoWeather", true)
+        AlertDialog.Builder(this).setTitle("Imatge de fons")
+            .setItems(arrayOf("Tria una imatge del mòbil", "Efectes del temps sobre la imatge: " + if (overlay) "activats" else "desactivats", "Torna al paisatge original")) { _, item ->
+                when (item) {
+                    0 -> try { imagePicker.launch(arrayOf("image/*")) }
+                        catch (_: ActivityNotFoundException) { Toast.makeText(this, "No hi ha cap selector d’imatges disponible", Toast.LENGTH_LONG).show() }
+                    1 -> { prefs.edit().putBoolean("photoWeather", !overlay).apply(); renderData() }
+                    2 -> {
+                        wallpaperJob = lifecycleScope.launch { wallpaperStore.clear(); wallpaper = null; renderData() }
+                    }
+                }
+            }.setNegativeButton("Tanca", null).show()
+    }
+
     internal fun previewWeather() {
         val scenes = arrayOf("Sol", "Núvols", "Pluja", "Neu", "Nit")
         val body = column()
@@ -482,7 +523,7 @@ class FoldActivity : AppCompatActivity() {
         fun show(index: Int) {
             stage.removeAllViews()
             stage.addView(WeatherScene(this, intArrayOf(0, 3, 61, 73, 0)[index], index == 4,
-                prefs.getBoolean("effects", true), true), FrameLayout.LayoutParams(-1, -1))
+                prefs.getBoolean("effects", true), true, wallpaper, true), FrameLayout.LayoutParams(-1, -1))
             stage.addView(text("SIMULACIÓ · ${scenes[index].uppercase(Locale("ca"))}", 12f).apply {
                 setPadding(dp(16), dp(16), dp(16), 0)
             })
