@@ -54,7 +54,7 @@ class WallpaperTest {
                 assertTrue(imported.sameAs(store.load()))
             } finally { invalid.delete() }
             source.delete() // The launcher must no longer depend on the original URI.
-            device.executeShellCommand("wm density 420"); device.executeShellCommand("wm size 1080x2340")
+            device.executeShellCommand("wm density 420"); device.executeShellCommand("wm size 1080x1920")
             device.executeShellCommand("mkdir -p /sdcard/Download/fold-metro")
             ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
                 fun awaitPhoto() {

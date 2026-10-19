@@ -48,14 +48,14 @@ class FoldSmokeTest {
         }
         device.executeShellCommand("wm density 420")
         try {
-            resize("1080x2340")
+            resize("1080x1920")
             ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista compacta")), 15000))
                 assertTrue(device.hasObject(By.text("Cabrils")))
                 assertTrue(device.hasObject(By.text("Tria una ciutat")))
                 assertTrue(device.wait(Until.hasObject(By.text("Calendar")), 10000))
                 screenshot("compact")
-                resize("2100x2340")
+                resize("1920x1920")
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista ampla")), 15000))
                 screenshot("expanded")
                 assertTrue(device.hasObject(By.text("Trucades")))
@@ -107,7 +107,7 @@ class FoldSmokeTest {
                 val query = "zzzz-test-search"
                 assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 10000))
                 device.findObject(UiSelector().className("android.widget.EditText")).setText(query)
-                resize("1080x2340")
+                resize("1080x1920")
                 assertTrue(device.wait(Until.hasObject(By.text(query)), 15000))
                 scenario.recreate()
                 assertTrue(device.wait(Until.hasObject(By.text(query)), 15000))

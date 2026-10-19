@@ -11,6 +11,8 @@ internal class LauncherPages(private val pages: List<View>) : RecyclerView.Adapt
     override fun getItemCount() = pages.size
     override fun getItemViewType(position: Int) = position
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = Holder(FrameLayout(parent.context).apply {
+        // Own DOWN events in empty page areas so the parent pager can intercept the drag.
+        isClickable = true
         layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
     })
     override fun onBindViewHolder(holder: Holder, position: Int) {

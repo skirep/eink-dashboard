@@ -42,7 +42,7 @@ class CalendarAndWeatherTest {
         val created = mutableListOf<android.net.Uri>()
         device.executeShellCommand("pm grant ${context.packageName} android.permission.READ_CALENDAR")
         instrumentation.uiAutomation.adoptShellPermissionIdentity("android.permission.READ_CALENDAR", "android.permission.WRITE_CALENDAR")
-        device.executeShellCommand("wm density 420"); device.executeShellCommand("wm size 2100x2340")
+        device.executeShellCommand("wm density 420"); device.executeShellCommand("wm size 1920x1920")
         fun seed(type: String, name: String, title: String, offset: Long): Long {
             val uri = CalendarContract.Calendars.CONTENT_URI.buildUpon()
                 .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
