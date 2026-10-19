@@ -73,8 +73,8 @@ class FoldSmokeTest {
                         val check = object : Runnable {
                             override fun run() {
                                 val pager = findPager(activity.window.decorView) ?: return
-                                actual = "page=${pager.currentItem}, state=${pager.scrollState}, bounds=${pager.width}x${pager.height}"
-                                if (pager.currentItem == position && pager.scrollState == ViewPager2.SCROLL_STATE_IDLE) ready.countDown()
+                                actual = "page=${pager.currentItem}, state=${pager.scrollState}, bounds=${pager.width}x${pager.height}, focus=${activity.hasWindowFocus()}, back=${pager.canScrollHorizontally(-1)}"
+                                if (activity.hasWindowFocus() && pager.isLaidOut && pager.currentItem == position && pager.scrollState == ViewPager2.SCROLL_STATE_IDLE) ready.countDown()
                                 else if (!activity.isDestroyed && ready.count > 0) activity.window.decorView.postDelayed(this, 50)
                             }
                         }
@@ -87,6 +87,7 @@ class FoldSmokeTest {
                     }
                 }
                 fun swipePage(toApps: Boolean) {
+                    assertPage(if (toApps) 0 else 1)
                     val bounds = Rect()
                     scenario.onActivity { activity -> assertTrue(findPager(activity.window.decorView)!!.getGlobalVisibleRect(bounds)) }
                     val left = bounds.left + bounds.width() / 5
@@ -114,7 +115,19 @@ class FoldSmokeTest {
                 assertPage(1)
                 screenshot("search-restored")
                 // Native paging must also work after compact resize and Activity recreation.
-                swipePage(false)
+                val trace = java.util.concurrent.ConcurrentLinkedQueue<String>()
+                scenario.onActivity { activity ->
+                    val original = requireNotNull(activity.window.callback)
+                    activity.window.callback = object : android.view.Window.Callback by original {
+                        override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+                            trace.add("${event.actionMasked}@${event.x.toInt()},${event.y.toInt()}")
+                            return original.dispatchTouchEvent(event)
+                        }
+                    }
+                }
+                try { swipePage(false) } catch (error: AssertionError) {
+                    throw AssertionError("${error.message}; window touches=$trace", error)
+                }
                 swipePage(true)
                 assertTrue(device.hasObject(By.text(query)))
                 assertTrue(device.hasObject(By.text("Trucades")))
