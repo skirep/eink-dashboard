@@ -8,7 +8,7 @@
         <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent></queries>
     <application android:label="Fold Metro" android:theme="@style/Theme.FoldMetro" tools:replace="android:label,android:theme">
         <activity android:name="com.eink.launcher.MainActivity" tools:node="remove" />
-        <activity android:name="com.eink.launcher.fold.FoldActivity" android:exported="true" android:launchMode="singleTask" android:resizeableActivity="true" android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden">
+        <activity android:name="com.eink.launcher.fold.FoldActivity" android:exported="true" android:launchMode="singleTask" android:resizeableActivity="true" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.HOME"/><category android:name="android.intent.category.DEFAULT"/></intent-filter>
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
         </activity>
