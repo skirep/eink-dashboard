@@ -71,12 +71,19 @@ class FoldSmokeTest {
                 }
                 val trace = java.util.concurrent.ConcurrentLinkedQueue<String>()
                 var gesture = "none"
+                var configurationDuringSwipe = false
                 fun captureTouches() {
                     scenario.onActivity { activity ->
                         val original = requireNotNull(activity.window.callback)
                         activity.window.callback = object : android.view.Window.Callback by original {
                             override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
                                 val handled = original.dispatchTouchEvent(event)
+                                // Android may request a new layout during an unfolding gesture.
+                                // Keep the real injected swipe alive across that callback.
+                                if (!configurationDuringSwipe && event.actionMasked == android.view.MotionEvent.ACTION_MOVE && gesture.startsWith("toApps=true")) {
+                                    configurationDuringSwipe = true
+                                    activity.onConfigurationChanged(android.content.res.Configuration(activity.resources.configuration))
+                                }
                                 val active = findPager(activity.window.decorView)
                                 trace.add("${event.actionMasked}@${event.x.toInt()},${event.y.toInt()}/raw=${event.rawX.toInt()},${event.rawY.toInt()}/$handled/pager=${active?.hashCode()},down=${active?.pointerDown},state=${active?.pagingState},offset=${active?.scrollX}")
                                 return handled
@@ -123,6 +130,7 @@ class FoldSmokeTest {
                     assertPage(if (toApps) 1 else 0)
                 }
                 swipePage(true)
+                assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 10000))
                 assertTrue(device.findObject(UiSelector().textContains("Camera")).waitForExists(10000))
                 screenshot("applications-right-page")
                 assertTrue(device.hasObject(By.text("Trucades")))

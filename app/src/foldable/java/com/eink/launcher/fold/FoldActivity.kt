@@ -353,7 +353,7 @@ class FoldActivity : AppCompatActivity() {
                 contentDescription = item.label; setOnClickListener { item.click() }
                 if (item.label == "Agenda") setOnLongClickListener { calendarPicker(); true }
                 addView(ImageView(this@FoldActivity).apply { setImageResource(item.icon); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(29), dp(29)))
-                addView(text(item.label, 12f))
+                addView(text(item.label, 12f).apply { gravity = Gravity.CENTER })
             }
             dock.addView(control, LinearLayout.LayoutParams(0, dp(68), 1f).apply { if (index < 2) rightMargin = dp(7) })
         }

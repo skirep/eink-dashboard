@@ -29,6 +29,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
     private val news = mutableMapOf<Int, List<NewsItem>>()
     private val errors = mutableMapOf<Int, String>()
     private val jobs = mutableMapOf<Int, Job>()
+    private val imagePending = mutableSetOf<String>()
     private val images = object : android.util.LruCache<String, Bitmap>(4096) {
         override fun sizeOf(key: String, value: Bitmap) = (value.allocationByteCount / 1024).coerceAtLeast(1)
     }
@@ -55,6 +56,11 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
                 (0 until minOf(array.length(), 10)).map { array.getJSONObject(it) }
                     .map { NewsItem(it.getString("title"), it.getString("url"), it.optString("image")) }.filter { NewsFeed.https(it.url) }
             }.getOrDefault(emptyList())
+        }
+        // Cached headlines must regain thumbnails after Activity/process recreation,
+        // even while the hourly feed refresh is throttled.
+        news.values.filter { it.isNotEmpty() }.forEach { items ->
+            activity.lifecycleScope.launch { loadImages(items) }
         }
         activity.lifecycleScope.launch {
             activity.repeatOnLifecycle(Lifecycle.State.STARTED) { MailNotifications.state.collect { changed() } }
@@ -127,18 +133,24 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
                     val array = JSONArray().apply { result.forEach { put(JSONObject().put("title", it.title).put("url", it.url).put("image", it.image)) } }
                     prefs.edit().putString("news_$i", array.toString()).putLong("newsUpdated_$i", System.currentTimeMillis()).apply()
                     changed()
-                    result.take(3).forEach { item ->
-                        if (item.image.isNotEmpty() && images.get(item.image) == null) {
-                            val bitmap = withContext(Dispatchers.IO) { NewsFeed.thumbnail(item.image) }
-                            if (bitmap != null) images.put(item.image, bitmap)
-                        }
-                    }
+                    loadImages(result)
                 } catch (e: CancellationException) { throw e }
                 catch (_: Exception) { errors[i] = "No s’ha pogut actualitzar · toca ↻" }
                 changed()
             }
         }
     }
+    private suspend fun loadImages(items: List<NewsItem>) {
+        items.take(3).forEach { item ->
+            if (item.image.isNotEmpty() && images.get(item.image) == null && imagePending.add(item.image)) {
+                try {
+                    val bitmap = withContext(Dispatchers.IO) { NewsFeed.thumbnail(item.image) }
+                    if (bitmap != null) { images.put(item.image, bitmap); changed() }
+                } finally { imagePending.remove(item.image) }
+            }
+        }
+    }
+
     fun news(parent: LinearLayout, expanded: Boolean) {
         val card = card()
         val heading = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
