@@ -34,7 +34,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
 import androidx.viewpager.widget.ViewPager
-import android.provider.AlarmClock
 import com.eink.launcher.R
 
 class FoldActivity : AppCompatActivity() {
@@ -700,11 +699,7 @@ class FoldActivity : AppCompatActivity() {
     private fun openPackage(name: String) { val intent = packageManager.getLaunchIntentForPackage(name); if (intent != null) open(intent) else Toast.makeText(this, "L’aplicació no està instal·lada", Toast.LENGTH_LONG).show() }
     private fun open(intent: Intent) { try { startActivity(intent) } catch (e: Exception) { Toast.makeText(this, "No hi ha cap aplicació disponible per obrir-ho", Toast.LENGTH_LONG).show() } }
     private fun openClock() {
-        try { startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS)) }
-        catch (_: ActivityNotFoundException) {
-            val candidate = apps().firstOrNull { it.activityInfo.packageName in setOf("com.hihonor.deskclock", "com.huawei.deskclock", "com.android.deskclock", "com.google.android.deskclock") }
-            if (candidate != null) launch(candidate) else Toast.makeText(this, "No s’ha trobat cap app de rellotge", Toast.LENGTH_LONG).show()
-        }
+        if (!ClockLauncher.open(this)) Toast.makeText(this, "No s’ha pogut obrir cap app de rellotge en aquest perfil", Toast.LENGTH_LONG).show()
     }
     private fun openWhatsApp() {
         val intent = listOf("com.whatsapp", "com.whatsapp.w4b").firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) }

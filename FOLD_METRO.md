@@ -1,4 +1,4 @@
-# MagicFold / Magic V2 — v0.8
+# MagicFold / Magic V2 — v0.9
 
 Launcher Android amb estètica Windows 10 Mobile i mosaics translúcids amb vores de llum.
 El temps de **Cabrils** transforma el fons: paisatge en capes, núvols que es desplacen,
@@ -123,7 +123,7 @@ previsualització o retirar l’accés a Configuració d’Android. Els comptes 
 altre perfil poden no estar disponibles. No es necessita compartir contrasenyes.
 
 **Descobreix** usa RSS/Atom amb Xataka, Time Extension i VidaExtra per defecte.
-Les tres fonts es poden canviar a Configuració → Fonts de notícies. Els titulars,
+Les fonts es poden canviar a Configuració → Fonts de notícies. Els titulars,
 enllaços i miniatures provenen dels feeds; tocar una notícia obre el lloc
 original al navegador. S’actualitzen com a màxim cada hora o en tocar ↻;
 la memòria cau i l’hora d’actualització es mostren quan falla la xarxa.
@@ -132,3 +132,29 @@ Les compilacions debug de GitHub no tenen una clau de signatura persistent.
 Si Android indica que la signatura és incompatible amb una versió anterior,
 cal desinstal·lar-la: això esborra les dades locals, la configuració i el fons
 importat de MagicFold. Les fotos originals no es modifiquen.
+
+
+## Notícies i alarmes v0.9
+
+Descobreix inclou **Tecnologia, Retro, Videojocs, Futbol, Economia, Política catalana,
+Política espanyola i Món**. Llisca la fila de seccions o toca **Notícies · Seccions ▾**
+per escollir-ne una. Es conserva la selecció en canviar de mida o reiniciar.
+La fila de seccions es desplaça sense obrir la pàgina d’aplicacions.
+Hi ha fins a 20 titulars per feed; **Veure tots els titulars** obre la llista completa.
+L’inici mostra tres titulars en format compacte i cinc en format ample.
+Món ressalta el primer titular i conserva l’ordre editorial del feed internacional;
+no calcula una classificació pròpia de rellevància.
+
+Fonts noves per defecte: Mundo Deportivo (futbol), ARA (economia i internacional),
+Nació (política catalana) i elDiario.es (política espanyola). La secció política de
+Nació també pot cobrir política estatal amb incidència a Catalunya. Les fonts
+es poden personalitzar amb RSS/Atom HTTPS; els articles poden tenir subscripció
+al lloc original. No es descarreguen articles complets ni s’eviten murs de pagament.
+Les fonts configurades de les tres seccions anteriors es conserven.
+
+Tocar l’hora demana **mostrar les alarmes**, sense crear-ne ni activar-ne cap.
+S’afegeix el permís normal SET_ALARM per compatibilitat amb rellotges de fabricants.
+Si l’activitat d’alarmes no existeix o el sistema en denega l’accés, es prova
+l’entrada pública del rellotge d’Honor, Huawei, Android o Google. Si no hi ha
+cap rellotge accessible, es mostra un avís i MagicFold continua obert.
+La correcció es valida en emulador; encara cal provar-la al Magic V2 físic.

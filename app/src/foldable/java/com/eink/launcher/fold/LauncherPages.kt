@@ -12,6 +12,7 @@ internal class LauncherPager(context: Context) : ViewPager(context) {
     private var startX = 0f
     private var startY = 0f
     private var startPage = 0
+    private var categoryGesture = false
     var onInteractionFinished: (() -> Unit)? = null
     var pointerDown = false
         private set
@@ -26,6 +27,18 @@ internal class LauncherPager(context: Context) : ViewPager(context) {
     // must not claim the launcher gesture before ViewPager can intercept it.
     override fun canScroll(v: View, checkV: Boolean, dx: Int, x: Int, y: Int) = false
 
+    private fun onCategoryStrip(view: View, x: Int, y: Int): Boolean {
+        if (!view.isShown) return false
+        if (view is android.widget.HorizontalScrollView) {
+            val bounds = android.graphics.Rect()
+            return view.getGlobalVisibleRect(bounds) && bounds.contains(x, y)
+        }
+        return view is ViewGroup && (0 until view.childCount).any { onCategoryStrip(view.getChildAt(it), x, y) }
+    }
+
+    override fun onInterceptTouchEvent(event: MotionEvent): Boolean =
+        if (categoryGesture) false else super.onInterceptTouchEvent(event)
+
     // Vertical children may disallow interception on DOWN. Keep receiving moves:
     // ViewPager itself locks vertical gestures to the child once direction is known.
     override fun requestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
@@ -34,12 +47,13 @@ internal class LauncherPager(context: Context) : ViewPager(context) {
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            categoryGesture = onCategoryStrip(this, event.rawX.toInt(), event.rawY.toInt())
             pointerDown = true
             startX = event.x; startY = event.y; startPage = currentItem
         }
         val dx = event.x - startX
         val dy = event.y - startY
-        val commit = event.actionMasked == MotionEvent.ACTION_UP &&
+        val commit = !categoryGesture && event.actionMasked == MotionEvent.ACTION_UP &&
             kotlin.math.abs(dx) > width * .18f && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.3f
         return try {
             val handled = super.dispatchTouchEvent(event)

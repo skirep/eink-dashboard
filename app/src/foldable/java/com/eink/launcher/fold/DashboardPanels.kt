@@ -33,7 +33,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
     private val images = object : android.util.LruCache<String, Bitmap>(4096) {
         override fun sizeOf(key: String, value: Bitmap) = (value.allocationByteCount / 1024).coerceAtLeast(1)
     }
-    private var selected = prefs.getInt("newsCategory", 0).coerceIn(0, 2)
+    private var selected = prefs.getInt("newsCategory", 0).coerceIn(0, NewsFeed.defaults.lastIndex)
     private fun dp(v: Int) = (v * activity.resources.displayMetrics.density).roundToInt()
     private fun column() = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
     private fun text(value: String, size: Float = 14f, color: Int = MetroStyle.text) = TextView(activity).apply {
@@ -53,7 +53,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
         NewsFeed.defaults.indices.forEach { i ->
             news[i] = runCatching {
                 val array = JSONArray(prefs.getString("news_$i", "[]"))
-                (0 until minOf(array.length(), 10)).map { array.getJSONObject(it) }
+                (0 until minOf(array.length(), NewsFeed.MAX_ITEMS)).map { array.getJSONObject(it) }
                     .map { NewsItem(it.getString("title"), it.getString("url"), it.optString("image")) }.filter { NewsFeed.https(it.url) }
             }.getOrDefault(emptyList())
         }
@@ -154,7 +154,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
     fun news(parent: LinearLayout, expanded: Boolean) {
         val card = card()
         val heading = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
-        heading.addView(caption("DESCOBREIX"), LinearLayout.LayoutParams(0, -2, 1f))
+        heading.addView(button("Notícies · Seccions ▾") { chooseCategory() }, LinearLayout.LayoutParams(0, dp(44), 1f))
         heading.addView(text("↻", 22f).apply {
             gravity = Gravity.CENTER; minimumHeight = dp(44); minimumWidth = dp(44); isFocusable = true
             contentDescription = "Actualitza notícies"; setOnClickListener { refresh(true) }
@@ -164,24 +164,45 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
             chips.addView(button(source.category) { selected = i; prefs.edit().putInt("newsCategory", i).apply(); changed() }.apply {
                 textSize = 11f; isSelected = i == selected
                 if (isSelected) { setTextColor(MetroStyle.background); background = MetroStyle.surface(MetroStyle.mint, MetroStyle.blue, dp(7).toFloat()) }
-            }, LinearLayout.LayoutParams(0, dp(40), 1f).apply { rightMargin = dp(3) })
-        }; card.addView(chips)
+                contentDescription = "Secció ${source.category}"; setPadding(dp(12), 0, dp(12), 0)
+            }, LinearLayout.LayoutParams(-2, dp(44)).apply { rightMargin = dp(5) })
+        }
+        val categories = HorizontalScrollView(activity).apply {
+            isHorizontalScrollBarEnabled = true; addView(chips)
+            contentDescription = "Seccions de notícies · llisca per veure-les totes"
+        }
+        card.addView(categories)
+        categories.post { categories.scrollTo((chips.getChildAt(selected).left - dp(8)).coerceAtLeast(0), 0) }
         val items = news[selected].orEmpty(); val source = source(selected)
+        card.addView(caption(if (source.category == "Món") "MÓN · TITULARS DESTACATS" else source.category.uppercase(Locale.getDefault())))
         if (items.isEmpty()) card.addView(text(if (errors.containsKey(selected)) "Sense notícies · comprova la connexió" else "Carregant titulars…", 13f, MetroStyle.muted))
-        items.take(if (expanded) 3 else 1).forEach { item ->
+        items.take(if (expanded) 5 else 3).forEachIndexed { index, item ->
             val row = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(76); setPadding(0, dp(8), 0, dp(8)); isFocusable = true }
             val bitmap = images.get(item.image)
             if (bitmap != null) row.addView(ImageView(activity).apply { setImageBitmap(bitmap); scaleType = ImageView.ScaleType.CENTER_CROP; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO },
                 LinearLayout.LayoutParams(dp(74), dp(60)).apply { rightMargin = dp(10) })
             val labels = column()
-            labels.addView(text(item.title, 15f).apply { maxLines = 3; ellipsize = TextUtils.TruncateAt.END })
+            labels.addView(text(item.title, if (source.category == "Món" && index == 0) 18f else 15f).apply { maxLines = 3; ellipsize = TextUtils.TruncateAt.END })
             labels.addView(text(source.name + "  ↗", 11f, MetroStyle.muted))
             row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f)); row.setOnClickListener { open(Intent(Intent.ACTION_VIEW, Uri.parse(item.url))) }; card.addView(row)
         }
+        if (items.isNotEmpty()) card.addView(button("Veure tots els titulars (${items.size})") { showHeadlines(selected) })
         val updated = prefs.getLong("newsUpdated_$selected", 0)
         card.addView(text(errors[selected] ?: if (updated > 0) "Actualitzat " + SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()).format(Date(updated)) else source.name, 10f, MetroStyle.muted).apply {
             setOnClickListener { newsSettings() }
         }); add(parent, card)
+    }
+    private fun chooseCategory() {
+        AlertDialog.Builder(activity).setTitle("Seccions de notícies")
+            .setSingleChoiceItems(NewsFeed.defaults.map { it.category }.toTypedArray(), selected) { dialog, i ->
+                selected = i; prefs.edit().putInt("newsCategory", i).apply(); dialog.dismiss(); changed()
+            }.setNegativeButton("Tanca", null).show()
+    }
+    private fun showHeadlines(category: Int) {
+        val items = news[category].orEmpty()
+        AlertDialog.Builder(activity).setTitle("${NewsFeed.defaults[category].category} · ${source(category).name}")
+            .setItems(items.map { it.title }.toTypedArray()) { _, i -> open(Intent(Intent.ACTION_VIEW, Uri.parse(items[i].url))) }
+            .setNegativeButton("Tanca", null).show()
     }
     fun newsSettings() {
         AlertDialog.Builder(activity).setTitle("Fonts de notícies RSS").setItems(NewsFeed.defaults.mapIndexed { i, s -> "${s.category} · ${source(i).name}" }.toTypedArray()) { _, i ->

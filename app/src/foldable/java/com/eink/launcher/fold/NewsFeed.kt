@@ -14,13 +14,19 @@ internal object NewsFeed {
     val defaults = listOf(
         NewsSource("Tecnologia", "Xataka", "https://www.xataka.com/index.xml"),
         NewsSource("Retro", "Time Extension", "https://www.timeextension.com/feeds/latest"),
-        NewsSource("Videojocs", "VidaExtra", "https://www.vidaextra.com/index.xml"))
+        NewsSource("Videojocs", "VidaExtra", "https://www.vidaextra.com/index.xml"),
+        NewsSource("Futbol", "Mundo Deportivo", "https://www.mundodeportivo.com/rss/futbol.xml"),
+        NewsSource("Economia", "ARA", "https://www.ara.cat/rss/economia/"),
+        NewsSource("Política catalana", "Nació", "https://www.naciodigital.cat/rss/politica.xml"),
+        NewsSource("Política espanyola", "elDiario.es", "https://www.eldiario.es/rss/politica/"),
+        NewsSource("Món", "ARA · Internacional", "https://www.ara.cat/rss/internacional/"))
+    const val MAX_ITEMS = 20
     fun https(value: String): Boolean = runCatching { val u = URL(value); u.protocol == "https" && u.host.isNotBlank() }.getOrDefault(false)
     private fun bytes(address: String, limit: Int): ByteArray {
         require(https(address))
         val c = URL(address).openConnection() as HttpURLConnection
         c.connectTimeout = 6000; c.readTimeout = 6000
-        c.setRequestProperty("User-Agent", "MagicFold/0.8 (Android RSS reader)")
+        c.setRequestProperty("User-Agent", "MagicFold/0.9 (Android RSS reader)")
         try {
             check(c.responseCode == 200 && c.url.protocol == "https")
             return c.inputStream.use { input ->
@@ -48,7 +54,7 @@ internal object NewsFeed {
         val parser = Xml.newPullParser().apply { setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true); setInput(StringReader(xml)) }
         val items = mutableListOf<NewsItem>()
         var inside = false; var title = ""; var link = ""; var image = ""
-        while (parser.eventType != XmlPullParser.END_DOCUMENT && items.size < 10) {
+        while (parser.eventType != XmlPullParser.END_DOCUMENT && items.size < MAX_ITEMS) {
             val name = parser.name.orEmpty()
             if (parser.eventType == XmlPullParser.START_TAG) {
                 when {
