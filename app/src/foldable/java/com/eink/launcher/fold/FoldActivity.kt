@@ -92,6 +92,7 @@ class FoldActivity : AppCompatActivity() {
     private var calendarPickerPending = false
     private var dataRenderPending = false
     private var layoutRenderPending = false
+    private var touchSequenceActive = false
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         refreshAgenda()
         if (granted && calendarPickerPending) { calendarPickerPending = false; calendarPicker() }
@@ -160,9 +161,10 @@ class FoldActivity : AppCompatActivity() {
     }
     private fun renderData() {
         // Data updates must not replace a focused search field or disturb an open dialog.
-        if (appDrawer || pages?.pointerDown == true || !hasWindowFocus() || (pages?.pagingState ?: ViewPager.SCROLL_STATE_IDLE) != ViewPager.SCROLL_STATE_IDLE) dataRenderPending = true else render()
+        if (appDrawer || touchSequenceActive || pages?.pointerDown == true || !hasWindowFocus() || (pages?.pagingState ?: ViewPager.SCROLL_STATE_IDLE) != ViewPager.SCROLL_STATE_IDLE) dataRenderPending = true else render()
     }
     override fun onStop() {
+        touchSequenceActive = false
         handler.removeCallbacks(tick); unregisterReceiver(packageReceiver)
         if (observerRegistered) { contentResolver.unregisterContentObserver(calendarObserver); observerRegistered = false }
         super.onStop()
@@ -174,6 +176,18 @@ class FoldActivity : AppCompatActivity() {
         super.onSaveInstanceState(out)
     }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); appDrawer = false; search = ""; entrancePending = true; render() }
+
+    // The clock, photos and dock live outside the pager. A data refresh must not
+    // remove their pressed view between DOWN and UP either.
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) touchSequenceActive = true
+        return try { super.dispatchTouchEvent(event) } finally {
+            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                touchSequenceActive = false
+                pages?.let { pager -> pager.post { flushPendingRender(pager) } }
+            }
+        }
+    }
 
     private fun showApps(show: Boolean) {
         (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
@@ -212,7 +226,7 @@ class FoldActivity : AppCompatActivity() {
     private fun saveScroll() { homeScroll?.let { homeY = it.scrollY }; rightScroll?.let { rightY = it.scrollY }; drawerScroll?.let { drawerY = it.scrollY } }
 
     private fun flushPendingRender(pager: LauncherPager) {
-        if (pages !== pager || !hasWindowFocus() || pager.pointerDown || pager.pagingState != ViewPager.SCROLL_STATE_IDLE) return
+        if (pages !== pager || !hasWindowFocus() || touchSequenceActive || pager.pointerDown || pager.pagingState != ViewPager.SCROLL_STATE_IDLE) return
         if (layoutRenderPending) render()
         else if (dataRenderPending && !appDrawer) renderData()
     }
@@ -220,7 +234,7 @@ class FoldActivity : AppCompatActivity() {
     private fun render() {
         // Configuration and package callbacks also rebuild the hierarchy. Guard the
         // single render entry point, not only asynchronous weather/mail updates.
-        if (pages?.pointerDown == true || (pages?.pagingState ?: ViewPager.SCROLL_STATE_IDLE) != ViewPager.SCROLL_STATE_IDLE) {
+        if (touchSequenceActive || pages?.pointerDown == true || (pages?.pagingState ?: ViewPager.SCROLL_STATE_IDLE) != ViewPager.SCROLL_STATE_IDLE) {
             layoutRenderPending = true
             return
         }
