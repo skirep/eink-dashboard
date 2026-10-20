@@ -91,6 +91,7 @@ class FoldActivity : AppCompatActivity() {
     private var entrancePending = true
     private var calendarPickerPending = false
     private var dataRenderPending = false
+    private var layoutRenderPending = false
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         refreshAgenda()
         if (granted && calendarPickerPending) { calendarPickerPending = false; calendarPicker() }
@@ -155,7 +156,7 @@ class FoldActivity : AppCompatActivity() {
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && dataRenderPending && !appDrawer) renderData()
+        if (hasFocus) pages?.let { flushPendingRender(it) }
     }
     private fun renderData() {
         // Data updates must not replace a focused search field or disturb an open dialog.
@@ -210,7 +211,20 @@ class FoldActivity : AppCompatActivity() {
     }
     private fun saveScroll() { homeScroll?.let { homeY = it.scrollY }; rightScroll?.let { rightY = it.scrollY }; drawerScroll?.let { drawerY = it.scrollY } }
 
+    private fun flushPendingRender(pager: LauncherPager) {
+        if (pages !== pager || !hasWindowFocus() || pager.pointerDown || pager.pagingState != ViewPager.SCROLL_STATE_IDLE) return
+        if (layoutRenderPending) render()
+        else if (dataRenderPending && !appDrawer) renderData()
+    }
+
     private fun render() {
+        // Configuration and package callbacks also rebuild the hierarchy. Guard the
+        // single render entry point, not only asynchronous weather/mail updates.
+        if (pages?.pointerDown == true || (pages?.pagingState ?: ViewPager.SCROLL_STATE_IDLE) != ViewPager.SCROLL_STATE_IDLE) {
+            layoutRenderPending = true
+            return
+        }
+        layoutRenderPending = false
         dataRenderPending = false
         saveScroll(); homeScroll = null; rightScroll = null; drawerScroll = null
         val width = resources.configuration.screenWidthDp
@@ -307,6 +321,7 @@ class FoldActivity : AppCompatActivity() {
             setCurrentItem(selectedPage, false)
         }
         pages = pager
+        pager.onInteractionFinished = { flushPendingRender(pager) }
         fun updateNavigation(position: Int) {
             homeTab.isSelected = position == 0; appsTab.isSelected = position == 1
             homeTab.text = if (position == 0) "$mode · Inici" else "← Inici"
@@ -323,9 +338,7 @@ class FoldActivity : AppCompatActivity() {
                     .hideSoftInputFromWindow(window.decorView.windowToken, 0)
             }
             override fun onPageScrollStateChanged(state: Int) {
-                if (state == ViewPager.SCROLL_STATE_IDLE && !appDrawer && dataRenderPending && hasWindowFocus()) {
-                    pager.post { if (pages === pager && !appDrawer && pager.pagingState == ViewPager.SCROLL_STATE_IDLE) renderData() }
-                }
+                if (state == ViewPager.SCROLL_STATE_IDLE) pager.post { flushPendingRender(pager) }
             }
         })
         root.addView(pager, LinearLayout.LayoutParams(-1, 0, 1f))

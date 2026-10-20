@@ -12,6 +12,7 @@ internal class LauncherPager(context: Context) : ViewPager(context) {
     private var startX = 0f
     private var startY = 0f
     private var startPage = 0
+    var onInteractionFinished: (() -> Unit)? = null
     var pointerDown = false
         private set
     var pagingState: Int = SCROLL_STATE_IDLE
@@ -48,7 +49,10 @@ internal class LauncherPager(context: Context) : ViewPager(context) {
                 .coerceIn(0, (adapter?.count ?: 1) - 1), true)
             handled
         } finally {
-            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) pointerDown = false
+            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                pointerDown = false
+                post { onInteractionFinished?.invoke() }
+            }
         }
     }
 }
