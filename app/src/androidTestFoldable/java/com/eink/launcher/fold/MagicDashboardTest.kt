@@ -76,18 +76,22 @@ class MagicDashboardTest {
             ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
                 val content = UiScrollable(UiSelector().className("android.widget.ScrollView").scrollable(true))
                 assertTrue(content.scrollTextIntoView("Notícies · Seccions ▾"))
-                val strip = device.findObject(By.clazz("android.widget.HorizontalScrollView")).visibleBounds
+                assertTrue(content.scrollIntoView(UiSelector().description("Seccions de notícies · llisca per veure-les totes")))
+                val strip = device.wait(Until.findObject(By.desc("Seccions de notícies · llisca per veure-les totes")), 5000).visibleBounds
                 device.swipe(strip.right - 15, strip.centerY(), strip.left + 15, strip.centerY(), 30)
                 scenario.onActivity { activity ->
                     fun pager(v: android.view.View): LauncherPager? = if (v is LauncherPager) v else if (v is android.view.ViewGroup)
                         (0 until v.childCount).firstNotNullOfOrNull { pager(v.getChildAt(it)) } else null
                     assertEquals(0, pager(activity.window.decorView)?.currentItem)
                 }
+                assertTrue(content.scrollTextIntoView("Notícies · Seccions ▾"))
                 device.findObject(By.text("Notícies · Seccions ▾")).click()
                 assertTrue(device.wait(Until.hasObject(By.text("Política catalana")), 5000))
                 assertTrue(device.hasObject(By.text("Política espanyola")))
+                device.executeShellCommand("mkdir -p /sdcard/Download/fold-metro")
+                device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/news-sections.png")
                 device.findObject(By.text("Món")).click()
-                assertTrue(device.wait(Until.hasObject(By.text("MÓN · TITULARS DESTACATS")), 5000))
+                assertTrue(content.scrollTextIntoView("MÓN · TITULARS DESTACATS"))
                 scenario.recreate()
                 assertTrue(content.scrollTextIntoView("Veure tots els titulars (20)"))
                 device.findObject(By.text("Veure tots els titulars (20)")).click()

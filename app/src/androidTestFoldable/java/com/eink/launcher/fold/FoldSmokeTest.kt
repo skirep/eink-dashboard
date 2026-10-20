@@ -61,8 +61,8 @@ class FoldSmokeTest {
                 resize("1920x1920")
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista ampla")), 15000))
                 screenshot("expanded")
-                assertTrue(device.hasObject(By.text("Trucades")))
-                assertTrue(device.hasObject(By.text("WhatsApp")))
+                assertTrue(device.wait(Until.hasObject(By.desc("Trucades")), 10000))
+                assertTrue(device.wait(Until.hasObject(By.desc("WhatsApp")), 10000))
                 assertFalse(device.hasObject(By.text("Aplicacions  ↗")))
                 fun findPager(view: View): LauncherPager? {
                     if (view is LauncherPager) return view
