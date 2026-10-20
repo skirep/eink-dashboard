@@ -133,8 +133,8 @@ class FoldSmokeTest {
                 assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 10000))
                 assertTrue(device.findObject(UiSelector().textContains("Camera")).waitForExists(10000))
                 screenshot("applications-right-page")
-                assertTrue(device.hasObject(By.text("Trucades")))
-                assertTrue(device.hasObject(By.text("WhatsApp")))
+                assertTrue(device.hasObject(By.desc("Trucades")))
+                assertTrue(device.hasObject(By.desc("WhatsApp")))
                 swipePage(false)
                 assertTrue(device.hasObject(By.text("Cabrils")))
                 // Visible header labels work without a gesture and do not rebuild the root.
@@ -154,8 +154,8 @@ class FoldSmokeTest {
                 swipePage(false)
                 swipePage(true)
                 assertTrue(device.hasObject(By.text(query)))
-                assertTrue(device.hasObject(By.text("Trucades")))
-                assertTrue(device.hasObject(By.text("WhatsApp")))
+                assertTrue(device.hasObject(By.desc("Trucades")))
+                assertTrue(device.hasObject(By.desc("WhatsApp")))
                 // Activity survives actual viewport changes and process-style recreation.
                 scenario.onActivity { activity ->
                     val home = android.content.Intent(android.content.Intent.ACTION_MAIN)

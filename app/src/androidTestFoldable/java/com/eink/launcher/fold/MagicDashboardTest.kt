@@ -132,7 +132,7 @@ class MagicDashboardTest {
             device.findObject(UiSelector().description("Les meves fotos")).click()
             assertTrue("Tapping Photos must open its settings after returning from Clock", device.wait(Until.hasObject(By.text("Imatge de fons")), 5000))
             device.pressBack()
-            assertTrue(device.hasObject(By.text("WhatsApp")))
+            assertTrue(device.hasObject(By.desc("WhatsApp")))
         }
     }
 }
