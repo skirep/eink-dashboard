@@ -59,9 +59,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
         }
         // Cached headlines must regain thumbnails after Activity/process recreation,
         // even while the hourly feed refresh is throttled.
-        news.values.filter { it.isNotEmpty() }.forEach { items ->
-            activity.lifecycleScope.launch { loadImages(items) }
-        }
+        activity.lifecycleScope.launch { loadImages(news[selected].orEmpty()) }
         activity.lifecycleScope.launch {
             activity.repeatOnLifecycle(Lifecycle.State.STARTED) { MailNotifications.state.collect { changed() } }
         }
@@ -133,7 +131,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
                     val array = JSONArray().apply { result.forEach { put(JSONObject().put("title", it.title).put("url", it.url).put("image", it.image)) } }
                     prefs.edit().putString("news_$i", array.toString()).putLong("newsUpdated_$i", System.currentTimeMillis()).apply()
                     changed()
-                    loadImages(result)
+                    if (i == selected) loadImages(result)
                 } catch (e: CancellationException) { throw e }
                 catch (_: Exception) { errors[i] = "No s’ha pogut actualitzar · toca ↻" }
                 changed()
@@ -151,6 +149,13 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
         }
     }
 
+    private fun selectCategory(i: Int) {
+        selected = i; prefs.edit().putInt("newsCategory", i).apply(); changed()
+        // Keep the visible section's photos in the bounded cache instead of
+        // downloading every section's photos on each refresh.
+        activity.lifecycleScope.launch { loadImages(news[i].orEmpty()) }
+    }
+
     fun news(parent: LinearLayout, expanded: Boolean) {
         val card = card()
         val heading = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -161,7 +166,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
         }); card.addView(heading)
         val chips = LinearLayout(activity)
         NewsFeed.defaults.forEachIndexed { i, source ->
-            chips.addView(button(source.category) { selected = i; prefs.edit().putInt("newsCategory", i).apply(); changed() }.apply {
+            chips.addView(button(source.category) { selectCategory(i) }.apply {
                 textSize = 11f; isSelected = i == selected
                 if (isSelected) { setTextColor(MetroStyle.background); background = MetroStyle.surface(MetroStyle.mint, MetroStyle.blue, dp(7).toFloat()) }
                 contentDescription = "Secció ${source.category}"; setPadding(dp(12), 0, dp(12), 0)
@@ -195,7 +200,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
     private fun chooseCategory() {
         AlertDialog.Builder(activity).setTitle("Seccions de notícies")
             .setSingleChoiceItems(NewsFeed.defaults.map { it.category }.toTypedArray(), selected) { dialog, i ->
-                selected = i; prefs.edit().putInt("newsCategory", i).apply(); dialog.dismiss(); changed()
+                dialog.dismiss(); selectCategory(i)
             }.setNegativeButton("Tanca", null).show()
     }
     private fun showHeadlines(category: Int) {
