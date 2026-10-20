@@ -116,17 +116,30 @@ class FoldSmokeTest {
                     assertPage(if (toApps) 0 else 1)
                     device.waitForIdle()
                     val bounds = Rect()
+                    val horizontalStrips = mutableListOf<Rect>()
                     scenario.onActivity { activity ->
                         val pager = findPager(activity.window.decorView)!!
                         val location = IntArray(2); pager.getLocationOnScreen(location)
                         bounds.set(location[0], location[1], location[0] + pager.width, location[1] + pager.height)
+                        fun collect(view: View) {
+                            if (view is android.widget.HorizontalScrollView) {
+                                val rect = Rect()
+                                if (view.getGlobalVisibleRect(rect)) horizontalStrips += rect
+                            }
+                            if (view is ViewGroup) (0 until view.childCount).forEach { collect(view.getChildAt(it)) }
+                        }
+                        collect(pager)
                     }
                     assertTrue(bounds.intersect(0, 0, device.displayWidth, device.displayHeight))
                     val left = bounds.left + bounds.width() / 5
                     val right = bounds.right - bounds.width() / 5
+                    // The category strip deliberately consumes its own horizontal
+                    // gestures. Page swipes must begin in the remaining content.
+                    val y = listOf(.5f, .25f, .75f, .9f).map { bounds.top + (bounds.height() * it).toInt() }
+                        .first { candidate -> horizontalStrips.none { candidate in it.top..it.bottom } }
                     gesture = "toApps=$toApps, screen=$bounds, display=${device.displayWidth}x${device.displayHeight}"
                     trace.clear()
-                    assertTrue("Touch injection failed: $gesture", device.swipe(if (toApps) right else left, bounds.centerY(), if (toApps) left else right, bounds.centerY(), 18))
+                    assertTrue("Touch injection failed: $gesture", device.swipe(if (toApps) right else left, y, if (toApps) left else right, y, 18))
                     assertPage(if (toApps) 1 else 0)
                 }
                 swipePage(true)
