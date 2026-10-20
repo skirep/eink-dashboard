@@ -34,13 +34,16 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
 import androidx.viewpager.widget.ViewPager
-import android.provider.Telephony
+import android.provider.AlarmClock
+import com.eink.launcher.R
 
 class FoldActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("fold-metro", MODE_PRIVATE) }
     private val weatherStore by lazy { WeatherStore(prefs) }
     private val wallpaperStore by lazy { WallpaperStore(this) }
     private var wallpaper: Bitmap? = null
+    private var softenedWallpaper: Bitmap? = null
+    private val panels by lazy { DashboardPanels(this, prefs, { renderData() }, { open(it) }) }
     private var wallpaperJob: Job? = null
     private val imagePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importWallpaper(uri)
@@ -52,6 +55,7 @@ class FoldActivity : AppCompatActivity() {
             pending?.join()
             try {
                 wallpaper = wallpaperStore.import(uri)
+                softenedWallpaper = withContext(Dispatchers.Default) { wallpaper?.let(WeatherBackdrop::soften) }
                 renderData()
                 Toast.makeText(this@FoldActivity, "Imatge de fons desada", Toast.LENGTH_SHORT).show()
             } catch (cancelled: CancellationException) { throw cancelled }
@@ -102,7 +106,7 @@ class FoldActivity : AppCompatActivity() {
     private val tick = object : Runnable {
         override fun run() {
             headerClock?.text = clockText(); headerDate?.text = dateText()
-            refreshAgenda(); refreshWeather(); handler.postDelayed(this, 60000)
+            refreshAgenda(); refreshWeather(); panels.refresh(); handler.postDelayed(this, 60000)
         }
     }
 
@@ -130,8 +134,13 @@ class FoldActivity : AppCompatActivity() {
                 }
             }
         }
+        panels.start()
         render()
-        wallpaperJob = lifecycleScope.launch { wallpaper = wallpaperStore.load(); renderData() }
+        wallpaperJob = lifecycleScope.launch {
+            wallpaper = wallpaperStore.load()
+            softenedWallpaper = withContext(Dispatchers.Default) { wallpaper?.let(WeatherBackdrop::soften) }
+            renderData()
+        }
     }
     override fun onStart() {
         super.onStart()
@@ -141,7 +150,7 @@ class FoldActivity : AppCompatActivity() {
         handler.post(tick)
     }
     override fun onResume() {
-        super.onResume(); refreshAgenda()
+        super.onResume(); refreshAgenda(); renderData()
         homePrompt?.visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -208,23 +217,37 @@ class FoldActivity : AppCompatActivity() {
         val wide = FoldPolicy.expanded(width, hinge != null)
         val animate = entrancePending || (renderedWide != null && renderedWide != wide)
         entrancePending = false; renderedWide = wide
-        val sky = weatherStore.snapshot("cabrils").data?.optJSONObject("current")
+        val snapshot = weatherStore.snapshot("cabrils")
+        val sky = snapshot.data?.optJSONObject("current")?.takeIf {
+            System.currentTimeMillis() - snapshot.updated in 0..2 * 60 * 60000L
+        }
         val surface = WeatherScene(this, sky?.optInt("weather_code", -1) ?: -1,
             sky?.optInt("is_day", 1) == 0, prefs.getBoolean("effects", true), animate,
-            wallpaper, prefs.getBoolean("photoWeather", true))
+            if (prefs.getBoolean("photoBlur", true)) softenedWallpaper ?: wallpaper else wallpaper, prefs.getBoolean("photoWeather", true))
         val root = column().apply { setPadding(dp(20), dp(12), dp(20), dp(8)); fitsSystemWindows = true }
         surface.addView(root, FrameLayout.LayoutParams(-1, -1))
         val heading = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val title = column()
         title.addView(caption("MagicFold     ·     Magic V2", MetroStyle.mint))
         val hourLine = LinearLayout(this).apply { gravity = Gravity.BOTTOM }
-        headerClock = text(clockText(), if (width < 420) 42f else 50f).also { hourLine.addView(it) }
+        headerClock = text(clockText(), if (width < 420) 40f else 50f).apply {
+            contentDescription = "Obre rellotge i alarmes"; isFocusable = true; setOnClickListener { openClock() }
+        }.also { hourLine.addView(it) }
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         if (resources.configuration.fontScale <= 1.15f) hourLine.addView(text(when (hour) { in 6..12 -> "Bon dia."; in 13..19 -> "Bona tarda."; else -> "Bona nit." }, 14f, MetroStyle.muted), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(14); bottomMargin = dp(12) })
         title.addView(hourLine)
+        title.addView(caption("◷  Rellotge i alarmes").apply {
+            isFocusable = true; setOnClickListener { openClock() }; contentDescription = "Rellotge i alarmes"
+        })
         headerDate = text(dateText(), 15f, MetroStyle.muted).also { title.addView(it) }
         heading.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
-        heading.addView(action("⚙") { settings() }.apply { contentDescription = "Configuració" }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        val controls = column().apply { gravity = Gravity.CENTER }
+        controls.addView(action("⚙") { settings() }.apply { contentDescription = "Configuració" }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        controls.addView(text("▧  Fotos", 12f).apply {
+            minimumHeight = dp(48); gravity = Gravity.CENTER; isFocusable = true
+            contentDescription = "Les meves fotos"; setOnClickListener { wallpaperSettings() }
+        }, LinearLayout.LayoutParams(-2, dp(48)))
+        heading.addView(controls)
         root.addView(heading)
         val mode = when {
             hinge?.state == FoldingFeature.State.HALF_OPENED -> "MIG OBERT / dues zones"
@@ -253,15 +276,27 @@ class FoldActivity : AppCompatActivity() {
         run {
             val left = column(); val right = column()
             addWeather(left, wide, animate)
-            if (!wide) addAgenda(left, 1, animate)
-            block(left, caption("EL TEU ESPAI"), 7)
-            addFavorites(left, if (wide) 3 else FoldPolicy.columns(width), animate)
-            if (wide) addAgenda(right, 12, animate)
+            if (wide) {
+                addAgenda(left, 3, animate)
+                block(left, caption("A MÀ"), 7)
+                addFavorites(left, 4, animate)
+                panels.mail(right, true)
+                panels.news(right, true)
+            } else {
+                val overview = LinearLayout(this)
+                val agendaColumn = column(); val mailColumn = column()
+                addAgenda(agendaColumn, 1, animate); panels.mail(mailColumn, false)
+                overview.addView(agendaColumn, LinearLayout.LayoutParams(0, -2, 1.45f).apply { rightMargin = dp(8) })
+                overview.addView(mailColumn, LinearLayout.LayoutParams(0, -2, 1f))
+                block(left, overview, 0)
+                panels.news(left, false)
+                block(left, caption("A MÀ"), 7)
+                addFavorites(left, if (width >= 360 && resources.configuration.fontScale <= 1.15f) 4 else 3, animate)
+            }
             homePrompt = action("Estableix com a inici") { chooseHome() }.apply {
                 visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
             }
             block(right, homePrompt!!)
-            if (wide) block(right, text("Mantén premut un mosaic per personalitzar-lo.", 12f, MetroStyle.muted))
             addPanels(homePage, left, right, wide)
         }
         val selectedPage = if (appDrawer) 1 else 0
@@ -295,10 +330,19 @@ class FoldActivity : AppCompatActivity() {
         })
         root.addView(pager, LinearLayout.LayoutParams(-1, 0, 1f))
         val dock = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8), 0, 0) }
-        listOf("Trucades" to { open(Intent(Intent.ACTION_DIAL)) },
-            "SMS" to { openMessages() }, "Calendaris" to { calendarPicker() }).forEachIndexed { index, (label, click) ->
-            dock.addView(action(label, click).apply { setPadding(dp(4), dp(6), dp(4), dp(6)) },
-                LinearLayout.LayoutParams(0, dp(48), 1f).apply { if (index < 2) rightMargin = dp(8) })
+        data class DockAction(val label: String, val icon: Int, val click: () -> Unit)
+        listOf(DockAction("Trucades", R.drawable.magic_phone) { open(Intent(Intent.ACTION_DIAL)) },
+            DockAction("WhatsApp", R.drawable.magic_whatsapp) { openWhatsApp() },
+            DockAction("Agenda", R.drawable.magic_calendar) { openCalendar() }).forEachIndexed { index, item ->
+            val control = column().apply {
+                gravity = Gravity.CENTER; minimumHeight = dp(64); isFocusable = true
+                background = MetroStyle.surface(0xdd152c44.toInt(), 0xdd0e2034.toInt(), dp(9).toFloat())
+                contentDescription = item.label; setOnClickListener { item.click() }
+                if (item.label == "Agenda") setOnLongClickListener { calendarPicker(); true }
+                addView(ImageView(this@FoldActivity).apply { setImageResource(item.icon); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(29), dp(29)))
+                addView(text(item.label, 12f))
+            }
+            dock.addView(control, LinearLayout.LayoutParams(0, dp(68), 1f).apply { if (index < 2) rightMargin = dp(7) })
         }
         root.addView(dock)
         setContentView(surface)
@@ -344,7 +388,7 @@ class FoldActivity : AppCompatActivity() {
             val night = current?.optInt("is_day", 1) == 0
             val code = current?.optInt("weather_code", -1) ?: -1
             val card = tile(if (i == 0) 0xff176d71.toInt() else 0xff434381.toInt(), if (i == 0) 0xff112c46.toInt() else 0xff201e41.toInt(), 11)
-            card.addView(caption(if (i == 0) "A CASA" else "EL TEU ALTRE LLOC", 0xffd4e7ff.toInt()))
+            card.addView(caption(if (i == 0) "A CASA" else "SEGONA CIUTAT", 0xffd4e7ff.toInt()))
             card.addView(text(location?.name ?: "Tria una ciutat", 17f))
             val visual = FrameLayout(this)
             visual.addView(WeatherArt(this, code, night).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, FrameLayout.LayoutParams(dp(58), dp(58), Gravity.END or Gravity.CENTER_VERTICAL))
@@ -361,22 +405,6 @@ class FoldActivity : AppCompatActivity() {
             entrance(card, i, animate)
         }
         block(parent, line)
-        if (wide) {
-            val daily = weatherStore.snapshot("cabrils").data?.optJSONObject("daily")
-            val days = daily?.optJSONArray("time")
-            if (days != null) {
-                val forecast = LinearLayout(this)
-                for (i in 0 until minOf(4, days.length())) {
-                    val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(days.getString(i)) ?: continue
-                    val item = column().apply { gravity = Gravity.CENTER; setPadding(dp(4), dp(4), dp(4), dp(8)) }
-                    item.addView(caption(SimpleDateFormat("EEE", Locale("ca")).format(day)))
-                    item.addView(WeatherArt(this, daily.getJSONArray("weather_code").getInt(i), false), LinearLayout.LayoutParams(dp(42), dp(42)))
-                    item.addView(text("${daily.getJSONArray("temperature_2m_max").getDouble(i).roundToInt()}° / ${daily.getJSONArray("temperature_2m_min").getDouble(i).roundToInt()}°", 13f))
-                    forecast.addView(item, LinearLayout.LayoutParams(0, -2, 1f))
-                }
-                block(parent, forecast, 7)
-            }
-        }
         block(parent, text("Fons viu de Cabrils · Open-Meteo", 11f, MetroStyle.muted), 7)
     }
 
@@ -395,35 +423,35 @@ class FoldActivity : AppCompatActivity() {
 
     private fun addAgenda(parent: LinearLayout, count: Int, animate: Boolean) {
         val card = tile(0xff202d4c.toInt(), 0xff121b30.toInt(), if (count == 1) 11 else 16)
-        card.addView(caption("LA TEVA AGENDA / 7 DIES", MetroStyle.blue))
+        card.addView(caption("AGENDA / 7 DIES", MetroStyle.blue))
         val enabled = selectedCalendars()
         val active = sources.filter { enabled?.contains(it.id) ?: it.visible }
         val summary = if (calendarGranted() && agendaReady) {
             val google = active.count { it.provider == "Google" }; val outlook = active.count { it.provider == "Outlook / Microsoft" }
             "Google · $google    Outlook · $outlook"
         } else "Google Calendar + Outlook"
-        card.addView(text(summary, 13f, MetroStyle.muted))
+        card.addView(text(summary, 11f, MetroStyle.muted).apply { isFocusable = true; setOnClickListener { calendarPicker() }; contentDescription = "Configura calendaris" })
         when {
             !calendarGranted() -> {
-                if (count > 1) card.addView(text("Tot el teu dia,\nen un sol lloc.", 24f))
+                if (count > 3) card.addView(text("Tot el teu dia,\nen un sol lloc.", 24f))
                 block(card, action("Connecta els calendaris") { requestCalendar() }, 0)
             }
             agendaError != null -> card.addView(text(agendaError!!, 16f))
             !agendaReady -> card.addView(text("Carregant calendaris…", 16f))
             sources.isEmpty() -> {
-                if (count > 1) card.addView(text("Activa la sincronització de Google i Outlook per veure els esdeveniments aquí.", 16f))
+                if (count > 3) card.addView(text("Activa la sincronització de Google i Outlook per veure els esdeveniments aquí.", 16f))
                 card.addView(action("Configura els calendaris") { calendarHelp() })
             }
             active.isEmpty() -> card.addView(action("Escull els calendaris que vols veure") { calendarPicker() })
-            events.isEmpty() -> card.addView(text(if (count == 1) "Cap acte els pròxims 7 dies." else "Tens espai per a tu.\nCap acte els pròxims 7 dies.", if (count == 1) 16f else 20f))
+            events.isEmpty() -> card.addView(text(if (count == 1) "Cap acte els pròxims 7 dies." else "Cap acte els pròxims 7 dies.", if (count == 1) 16f else 20f))
             else -> events.take(count).forEach { event ->
                 val source = sources.find { it.id == event.calendarId }
-                val row = column().apply { setPadding(dp(10), dp(if (count == 1) 6 else 12), dp(2), dp(if (count == 1) 6 else 12)) }
+                val row = column().apply { setPadding(dp(10), dp(5), dp(2), dp(5)) }
                 row.addView(caption(event.time(), MetroStyle.mint))
-                row.addView(text(event.title, if (count == 1) 18f else 21f).apply {
-                    if (count == 1) { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
+                row.addView(text(event.title, if (count == 1) 15f else 17f).apply {
+                    if (count <= 3) { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
                 })
-                row.addView(text(listOfNotNull(source?.provider, source?.name).joinToString(" · "), 12f, MetroStyle.blue))
+                if (count > 1) row.addView(text(source?.provider.orEmpty(), 11f, MetroStyle.blue))
                 if (count > 1 && event.location.isNotBlank()) row.addView(text(event.location, 13f, MetroStyle.muted))
                 val eventLine = LinearLayout(this)
                 eventLine.addView(View(this).apply { setBackgroundColor(if (source?.provider == "Google") MetroStyle.mint else MetroStyle.blue) }, LinearLayout.LayoutParams(dp(2), -1))
@@ -432,7 +460,7 @@ class FoldActivity : AppCompatActivity() {
                 card.addView(eventLine)
             }
         }
-        if (count > 1 && calendarGranted()) {
+        if (count > 3 && calendarGranted()) {
             card.addView(action("Tria Google / Outlook") { calendarPicker() })
             card.addView(action("Obre calendari  ↗") { open(Intent(Intent.ACTION_VIEW, Uri.parse("content://com.android.calendar/time/${System.currentTimeMillis()}"))) })
         }
@@ -451,16 +479,16 @@ class FoldActivity : AppCompatActivity() {
     private fun pin(id: String) { val list = pins().toMutableList(); if (!list.remove(id)) list.add(id); prefs.edit().putString("pins", org.json.JSONArray(list).toString()).apply(); render() }
     private fun launch(info: ResolveInfo) { open(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(ComponentName(info.activityInfo.packageName, info.activityInfo.name)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     private fun addFavorites(parent: LinearLayout, columns: Int, animate: Boolean) {
-        val all = apps(); val favorites = pins().mapNotNull { id -> all.find { key(it) == id } }
+        val all = apps(); val favorites = pins().mapNotNull { id -> all.find { key(it) == id } }.take(4)
         if (favorites.isEmpty()) { block(parent, text("Mantén premuda una app de la llista per fixar-la aquí.", 15f, MetroStyle.muted)); return }
         val colors = listOf(0xff275992.toInt() to 0xff172a50.toInt(), 0xff4b417d.toInt() to 0xff262342.toInt(), 0xff23696b.toInt() to 0xff153b46.toInt(), 0xff765441.toInt() to 0xff3f2934.toInt())
         favorites.chunked(columns).forEachIndexed { rowIndex, row ->
             val line = LinearLayout(this)
             row.forEachIndexed { i, app ->
                 val index = rowIndex * columns + i; val color = colors[index % colors.size]
-                val item = tile(color.first, color.second, 13).apply { minimumHeight = dp(110) }
+                val item = tile(color.first, color.second, 9).apply { minimumHeight = dp(78) }
                 item.addView(ImageView(this).apply { setImageDrawable(app.loadIcon(packageManager)); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(36), dp(36)))
-                item.addView(text(app.loadLabel(packageManager).toString(), 16f), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+                item.addView(text(app.loadLabel(packageManager).toString(), 12f).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
                 item.setOnClickListener { launch(app) }; item.setOnLongClickListener { pin(key(app)); true }
                 item.contentDescription = app.loadLabel(packageManager).toString() + ". Mantén premut per treure el mosaic."
                 line.addView(item, LinearLayout.LayoutParams(0, -1, 1f).apply { if(i < columns - 1) rightMargin = dp(8) })
@@ -496,13 +524,15 @@ class FoldActivity : AppCompatActivity() {
 
     private fun settings() {
         val effects = if (prefs.getBoolean("effects", true)) "activats" else "desactivats"
-        AlertDialog.Builder(this).setTitle("MagicFold / Magic V2").setItems(arrayOf("Segona ciutat", "Calendaris Google i Outlook", "Efectes visuals: $effects", "Actualitza temps i agenda", "Launcher per defecte", "Configuració d’Android", "Prova els paisatges vius", "Imatge de fons")) { _, item ->
+        AlertDialog.Builder(this).setTitle("MagicFold / Magic V2").setItems(arrayOf("Segona ciutat", "Calendaris Google i Outlook", "Efectes visuals: $effects", "Actualitza temps i agenda", "Launcher per defecte", "Configuració d’Android", "Prova els paisatges vius", "Imatge de fons", "Avisos de Gmail i Outlook", "Fonts de notícies")) { _, item ->
             when (item) {
                 0 -> cityDialog(); 1 -> calendarPicker()
                 2 -> { prefs.edit().putBoolean("effects", !prefs.getBoolean("effects", true)).apply(); entrancePending = true; render() }
-                3 -> { refreshWeather(true); refreshAgenda() }; 4 -> chooseHome(); 5 -> open(Intent(Settings.ACTION_SETTINGS))
+                3 -> { refreshWeather(true); refreshAgenda(); panels.refresh(true) }; 4 -> chooseHome(); 5 -> open(Intent(Settings.ACTION_SETTINGS))
                 6 -> previewWeather()
                 7 -> wallpaperSettings()
+                8 -> panels.mailSettings()
+                9 -> panels.newsSettings()
             }
         }.show()
     }
@@ -512,13 +542,14 @@ class FoldActivity : AppCompatActivity() {
         }
         val overlay = prefs.getBoolean("photoWeather", true)
         AlertDialog.Builder(this).setTitle("Imatge de fons")
-            .setItems(arrayOf("Tria una imatge del mòbil", "Efectes del temps sobre la imatge: " + if (overlay) "activats" else "desactivats", "Torna al paisatge original")) { _, item ->
+            .setItems(arrayOf("Tria una imatge del mòbil", "Efectes del temps sobre la imatge: " + if (overlay) "activats" else "desactivats", "Torna al paisatge original", "Desenfocament de la foto: " + if (prefs.getBoolean("photoBlur", true)) "activat" else "desactivat")) { _, item ->
                 when (item) {
                     0 -> try { imagePicker.launch(arrayOf("image/*")) }
                         catch (_: ActivityNotFoundException) { Toast.makeText(this, "No hi ha cap selector d’imatges disponible", Toast.LENGTH_LONG).show() }
                     1 -> { prefs.edit().putBoolean("photoWeather", !overlay).apply(); renderData() }
+                    3 -> { prefs.edit().putBoolean("photoBlur", !prefs.getBoolean("photoBlur", true)).apply(); renderData() }
                     2 -> {
-                        wallpaperJob = lifecycleScope.launch { wallpaperStore.clear(); wallpaper = null; renderData() }
+                        wallpaperJob = lifecycleScope.launch { wallpaperStore.clear(); wallpaper = null; softenedWallpaper = null; renderData() }
                     }
                 }
             }.setNegativeButton("Tanca", null).show()
@@ -531,7 +562,7 @@ class FoldActivity : AppCompatActivity() {
         fun show(index: Int) {
             stage.removeAllViews()
             stage.addView(WeatherScene(this, intArrayOf(0, 3, 61, 73, 0)[index], index == 4,
-                prefs.getBoolean("effects", true), true, wallpaper, true), FrameLayout.LayoutParams(-1, -1))
+                prefs.getBoolean("effects", true), true, if (prefs.getBoolean("photoBlur", true)) softenedWallpaper ?: wallpaper else wallpaper, true), FrameLayout.LayoutParams(-1, -1))
             stage.addView(text("SIMULACIÓ · ${scenes[index].uppercase(Locale("ca"))}", 12f).apply {
                 setPadding(dp(16), dp(16), dp(16), 0)
             })
@@ -641,9 +672,20 @@ class FoldActivity : AppCompatActivity() {
     }
     private fun openPackage(name: String) { val intent = packageManager.getLaunchIntentForPackage(name); if (intent != null) open(intent) else Toast.makeText(this, "L’aplicació no està instal·lada", Toast.LENGTH_LONG).show() }
     private fun open(intent: Intent) { try { startActivity(intent) } catch (e: Exception) { Toast.makeText(this, "No hi ha cap aplicació disponible per obrir-ho", Toast.LENGTH_LONG).show() } }
-    private fun openMessages() {
-        val messaging = Telephony.Sms.getDefaultSmsPackage(this)?.let { packageManager.getLaunchIntentForPackage(it) }
-        open(messaging ?: Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MESSAGING))
+    private fun openClock() {
+        try { startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS)) }
+        catch (_: ActivityNotFoundException) {
+            val candidate = apps().firstOrNull { it.activityInfo.packageName in setOf("com.hihonor.deskclock", "com.huawei.deskclock", "com.android.deskclock", "com.google.android.deskclock") }
+            if (candidate != null) launch(candidate) else Toast.makeText(this, "No s’ha trobat cap app de rellotge", Toast.LENGTH_LONG).show()
+        }
+    }
+    private fun openWhatsApp() {
+        val intent = listOf("com.whatsapp", "com.whatsapp.w4b").firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) }
+        if (intent == null) Toast.makeText(this, "WhatsApp no està instal·lat en aquest perfil", Toast.LENGTH_LONG).show() else open(intent)
+    }
+    private fun openCalendar() {
+        try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("content://com.android.calendar/time/${System.currentTimeMillis()}"))) }
+        catch (_: ActivityNotFoundException) { calendarPicker() }
     }
     private fun isDefaultHome() = packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName == packageName
     private fun chooseHome() {

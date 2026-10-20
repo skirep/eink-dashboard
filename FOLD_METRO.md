@@ -1,4 +1,4 @@
-# MagicFold / Magic V2 — v0.7
+# MagicFold / Magic V2 — v0.8
 
 Launcher Android amb estètica Windows 10 Mobile i mosaics translúcids amb vores de llum.
 El temps de **Cabrils** transforma el fons: paisatge en capes, núvols que es desplacen,
@@ -98,3 +98,37 @@ màxim 2048 píxels) amb orientació corregida. Es conserva després de reinicia
 sense dependre de la ubicació original. No es modifica ni es puja la foto original.
 Les imatges no vàlides mantenen el fons anterior. No es demanen permisos generals
 d’accés a la galeria. Una capa fosca manté els textos llegibles fins i tot amb fotos clares.
+
+
+## Nou inici v0.8
+
+El mosaic ara mostra temps i agenda a l’esquerra, correu i notícies a la dreta
+quan el mòbil és ample, i un resum amb desplaçament vertical en format compacte.
+La barra fixa conté **Trucades · WhatsApp · Agenda**. Una pulsació llarga a Agenda
+obre la selecció de calendaris. Tocar l’hora obre les alarmes de l’app Rellotge.
+WhatsApp Business és l’alternativa si no hi ha WhatsApp normal al mateix perfil.
+
+El fons inclòs és una il·lustració fotogràfica generada d’una costa mediterrània,
+no una fotografia real de Cabrils. Les dades reals de Cabrils trien entre sol,
+núvols, pluja i nit, amb partícules de pluja/neu i il·luminació. Amb dades de més
+de dues hores o sense dades es torna al fons neutre. Una foto pròpia es pot
+desenfocar i rep les capes meteorològiques i la llum de dia/nit si els efectes
+sobre la foto estan activats. No es puja la foto a cap servidor.
+
+**Correu** mostra exclusivament notificacions actives de Gmail/Outlook amb accés
+opcional a notificacions d’Android. No consulta la safata d’entrada ni calcula
+el total de correus sense llegir. Els textos i els PendingIntent viuen només en
+memòria; es filtren altres aplicacions i resums de grup. Es pot ocultar la
+previsualització o retirar l’accés a Configuració d’Android. Els comptes en un
+altre perfil poden no estar disponibles. No es necessita compartir contrasenyes.
+
+**Descobreix** usa RSS/Atom amb Xataka, Time Extension i VidaExtra per defecte.
+Les tres fonts es poden canviar a Configuració → Fonts de notícies. Els titulars,
+enllaços i miniatures provenen dels feeds; tocar una notícia obre el lloc
+original al navegador. S’actualitzen com a màxim cada hora o en tocar ↻;
+la memòria cau i l’hora d’actualització es mostren quan falla la xarxa.
+
+Les compilacions debug de GitHub no tenen una clau de signatura persistent.
+Si Android indica que la signatura és incompatible amb una versió anterior,
+cal desinstal·lar-la: això esborra les dades locals, la configuració i el fons
+importat de MagicFold. Les fotos originals no es modifiquen.

@@ -53,13 +53,16 @@ class FoldSmokeTest {
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista compacta")), 15000))
                 assertTrue(device.hasObject(By.text("Cabrils")))
                 assertTrue(device.hasObject(By.text("Tria una ciutat")))
-                assertTrue(device.wait(Until.hasObject(By.text("Calendar")), 10000))
                 screenshot("compact")
+                val homeContent = UiScrollable(UiSelector().className("android.widget.ScrollView").scrollable(true))
+                assertTrue(homeContent.scrollTextIntoView("Calendar"))
+                homeContent.scrollToBeginning(5)
+                assertTrue(device.wait(Until.hasObject(By.text("Cabrils")), 10000))
                 resize("1920x1920")
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista ampla")), 15000))
                 screenshot("expanded")
                 assertTrue(device.hasObject(By.text("Trucades")))
-                assertTrue(device.hasObject(By.text("SMS")))
+                assertTrue(device.hasObject(By.text("WhatsApp")))
                 assertFalse(device.hasObject(By.text("Aplicacions  ↗")))
                 fun findPager(view: View): LauncherPager? {
                     if (view is LauncherPager) return view
@@ -123,7 +126,7 @@ class FoldSmokeTest {
                 assertTrue(device.findObject(UiSelector().textContains("Camera")).waitForExists(10000))
                 screenshot("applications-right-page")
                 assertTrue(device.hasObject(By.text("Trucades")))
-                assertTrue(device.hasObject(By.text("SMS")))
+                assertTrue(device.hasObject(By.text("WhatsApp")))
                 swipePage(false)
                 assertTrue(device.hasObject(By.text("Cabrils")))
                 // Visible header labels work without a gesture and do not rebuild the root.
@@ -144,7 +147,7 @@ class FoldSmokeTest {
                 swipePage(true)
                 assertTrue(device.hasObject(By.text(query)))
                 assertTrue(device.hasObject(By.text("Trucades")))
-                assertTrue(device.hasObject(By.text("SMS")))
+                assertTrue(device.hasObject(By.text("WhatsApp")))
                 // Activity survives actual viewport changes and process-style recreation.
                 scenario.onActivity { activity ->
                     val home = android.content.Intent(android.content.Intent.ACTION_MAIN)

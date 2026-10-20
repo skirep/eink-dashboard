@@ -86,8 +86,8 @@ class CalendarAndWeatherTest {
                 assertTrue(device.wait(Until.hasObject(By.text("Reunió de prova Outlook")), 15000))
                 device.executeShellCommand("mkdir -p /sdcard/Download/fold-metro")
                 device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/agenda-test-fixtures.png")
-                assertTrue(device.findObject(UiSelector().text("Calendaris")).waitForExists(10000))
-                device.findObject(UiSelector().text("Calendaris")).click()
+                assertTrue(device.findObject(UiSelector().description("Configura calendaris")).waitForExists(10000))
+                device.findObject(UiSelector().description("Configura calendaris")).click()
                 assertTrue(device.wait(Until.hasObject(By.text("Google + Outlook")), 10000))
                 device.waitForIdle()
                 // Resolve the node at click time: modal accessibility nodes can be recreated.
