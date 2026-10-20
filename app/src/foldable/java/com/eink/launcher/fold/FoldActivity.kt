@@ -120,7 +120,7 @@ class FoldActivity : AppCompatActivity() {
         drawerY = savedInstanceState?.getInt("drawerY") ?: 0
         entrancePending = savedInstanceState == null
         if (!prefs.contains("pins")) {
-            val initial = apps().take(6).map { key(it) }
+            val initial = apps().take(4).map { key(it) }
             if (initial.isNotEmpty()) prefs.edit().putString("pins", org.json.JSONArray(initial).toString()).apply()
         }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -476,7 +476,7 @@ class FoldActivity : AppCompatActivity() {
     private fun pins(): List<String> = runCatching {
         val list = org.json.JSONArray(prefs.getString("pins", "[]")); (0 until list.length()).map { list.getString(it) }
     }.getOrDefault(emptyList())
-    private fun pin(id: String) { val list = pins().toMutableList(); if (!list.remove(id)) list.add(id); prefs.edit().putString("pins", org.json.JSONArray(list).toString()).apply(); render() }
+    private fun pin(id: String) { val list = pins().toMutableList(); if (!list.remove(id)) list.add(0, id); prefs.edit().putString("pins", org.json.JSONArray(list).toString()).apply(); render() }
     private fun launch(info: ResolveInfo) { open(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(ComponentName(info.activityInfo.packageName, info.activityInfo.name)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     private fun addFavorites(parent: LinearLayout, columns: Int, animate: Boolean) {
         val all = apps(); val favorites = pins().mapNotNull { id -> all.find { key(it) == id } }.take(4)

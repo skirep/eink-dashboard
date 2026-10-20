@@ -20,7 +20,7 @@ internal object MailNotifications {
     fun publish(value: MailSnapshot) { mutable.value = value }
     fun notice(sbn: StatusBarNotification): MailNotice? {
         if (sbn.packageName !in packages || sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return null
-        val extras = sbn.notification.extras
+        val extras = sbn.notification.extras ?: return null
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.take(160).orEmpty()
         if (title.isBlank()) return null
         val preview = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT)

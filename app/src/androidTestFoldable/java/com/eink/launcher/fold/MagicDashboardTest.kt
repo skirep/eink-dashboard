@@ -48,7 +48,7 @@ class MagicDashboardTest {
             val notification = Notification.Builder(context, "fixture").setContentTitle("Correu de prova")
                 .setContentText("Dades fictícies de prova").setSmallIcon(android.R.drawable.ic_dialog_email).build()
             if (summary) notification.flags = notification.flags or Notification.FLAG_GROUP_SUMMARY
-            return StatusBarNotification(pkg, pkg, 1, "fixture", 1000, 0, notification, android.os.Process.myUserHandle(), null, 1L)
+            return StatusBarNotification(pkg, pkg, 1, "fixture", 1000, 0, 0, notification, android.os.Process.myUserHandle(), 1L)
         }
         assertEquals("Gmail", MailNotifications.notice(notice("com.google.android.gm"))?.provider)
         assertEquals("Outlook", MailNotifications.notice(notice("com.microsoft.office.outlook"))?.provider)

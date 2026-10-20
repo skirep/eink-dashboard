@@ -26,7 +26,7 @@ Si a v0.2 s’havia triat una altra ciutat, es conserva ara com a segona ubicaci
 ## Google Calendar i Outlook
 
 L’agenda combina els calendaris accessibles al perfil d’Android del launcher.
-**Calendaris** permet seleccionar-los individualment i mostra nom, compte i origen.
+**Configuració → Calendaris Google i Outlook** permet seleccionar-los individualment i mostra nom, compte i origen.
 Els actes indiquen Google, Outlook / Microsoft o el seu calendari d’origen.
 La lectura és local: no s’envien esdeveniments als serveis del temps.
 
@@ -47,9 +47,9 @@ Descarrega **MagicFold-Android** de la darrera execució correcta de
 [MagicFold APK](https://github.com/skirep/eink-dashboard/actions/workflows/foldable.yml).
 Instal·la `app-foldable-debug.apk` i estableix **MagicFold** com a inici.
 Identificador `com.eink.launcher.foldable`, independent de la variant e-ink.
-Pulsació llarga en una app per fixar-la o treure-la. **Trucades**, **SMS** i **Calendaris** queden fixos a la barra inferior, tant a inici
+Pulsació llarga en una app per fixar-la o treure-la. **Trucades**, **WhatsApp** i **Agenda** queden fixos a la barra inferior, tant a inici
 com al llistat d’apps. Trucades obre el marcador sense trucar automàticament;
-SMS obre l’aplicació de missatgeria predeterminada.
+WhatsApp obre l’app instal·lada al mateix perfil; si no hi és, es prova WhatsApp Business.
 Les aplicacions són una **segona pàgina situada a la dreta** de l’inici.
 Llisca **cap a l’esquerra** per anar-hi; cap a la dreta per tornar a l’inici.
 La pàgina es mou amb el dit i queda fixada en acabar el gest. També pots prémer
