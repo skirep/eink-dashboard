@@ -29,7 +29,7 @@ internal class LauncherPager(context: Context) : ViewPager(context) {
 
     private fun onCategoryStrip(view: View, x: Int, y: Int): Boolean {
         if (!view.isShown) return false
-        if (view is android.widget.HorizontalScrollView) {
+        if (view is android.widget.HorizontalScrollView || view.tag == "workspace-drag" || view.tag == "workspace-resize") {
             val bounds = android.graphics.Rect()
             return view.getGlobalVisibleRect(bounds) && bounds.contains(x, y)
         }

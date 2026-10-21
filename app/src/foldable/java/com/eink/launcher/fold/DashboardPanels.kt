@@ -80,6 +80,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
     }
     fun mail(parent: LinearLayout, expanded: Boolean) {
         val card = card()
+        card.tag = "desktop-mail"
         card.addView(caption(if (expanded) "CORREU · Gmail + Outlook" else "CORREU").apply {
             isFocusable = true; minimumHeight = dp(32); setOnClickListener { mailSettings() }
         })
@@ -161,6 +162,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
 
     fun news(parent: LinearLayout, expanded: Boolean) {
         val card = card()
+        card.tag = "desktop-news"
         val heading = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
         heading.addView(button("Notícies · Seccions ▾") { chooseCategory() }, LinearLayout.LayoutParams(0, dp(44), 1f))
         heading.addView(text("↻", 22f).apply {

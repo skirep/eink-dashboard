@@ -380,7 +380,9 @@ class FoldActivity : AppCompatActivity() {
                 visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
             }
             block(right, homePrompt!!)
-            addPanels(homePage, left, right, wide)
+            if (wide && (MetroStyle.windows || MetroStyle.desktop) && prefs.getBoolean("desktopEnabled", true)) {
+                homePage.addView(DesktopWorkspace(this, prefs, theme, listOf(left,right)), LinearLayout.LayoutParams(-1,0,1f))
+            } else addPanels(homePage, left, right, wide)
         }
         // ViewPager attaches adapter pages only during layout. Theme their full
         // trees now, while they are still detached from the Activity root.
@@ -495,7 +497,7 @@ class FoldActivity : AppCompatActivity() {
     }
 
     private fun addWeather(parent: LinearLayout, wide: Boolean, animate: Boolean) {
-        val line = LinearLayout(this).apply { clipChildren = false; clipToPadding = false }
+        val line = LinearLayout(this).apply { tag = "desktop-weather"; clipChildren = false; clipToPadding = false }
         listOf(WeatherLocations.cabrils, weatherStore.extra()).forEachIndexed { i, location ->
             val snapshot = location?.let { weatherStore.snapshot(it.id) }
             val current = snapshot?.data?.optJSONObject("current")
@@ -537,6 +539,7 @@ class FoldActivity : AppCompatActivity() {
 
     private fun addAgenda(parent: LinearLayout, count: Int, animate: Boolean) {
         val card = tile(0xff202d4c.toInt(), 0xff121b30.toInt(), if (count == 1) 11 else 16)
+        card.tag = "desktop-agenda"
         card.addView(caption("AGENDA / 7 DIES", MetroStyle.blue))
         val enabled = selectedCalendars()
         val active = sources.filter { enabled?.contains(it.id) ?: it.visible }
@@ -594,10 +597,10 @@ class FoldActivity : AppCompatActivity() {
     private fun launch(info: ResolveInfo) { open(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(ComponentName(info.activityInfo.packageName, info.activityInfo.name)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     private fun addFavorites(parent: LinearLayout, columns: Int, animate: Boolean) {
         val all = apps(); val favorites = pins().distinct().mapNotNull { id -> all.find { key(it) == id } }
-        if (favorites.isEmpty()) { block(parent, text("Mantén premuda una app de la llista per fixar-la aquí.", 15f, MetroStyle.muted)); return }
+        if (favorites.isEmpty()) { block(parent, text("Mantén premuda una app de la llista per fixar-la aquí.", 15f, MetroStyle.muted).apply { tag = "desktop-favorites-row" }); return }
         val colors = listOf(0xff275992.toInt() to 0xff172a50.toInt(), 0xff4b417d.toInt() to 0xff262342.toInt(), 0xff23696b.toInt() to 0xff153b46.toInt(), 0xff765441.toInt() to 0xff3f2934.toInt())
         favorites.chunked(columns).forEachIndexed { rowIndex, row ->
-            val line = LinearLayout(this).apply { clipChildren = false; clipToPadding = false }
+            val line = LinearLayout(this).apply { tag = "desktop-favorites-row"; clipChildren = false; clipToPadding = false }
             row.forEachIndexed { i, app ->
                 val index = rowIndex * columns + i; val color = colors[index % colors.size]
                 val item = tile(color.first, color.second, 9).apply { minimumHeight = dp(78); tag = "favorite:" + key(app) }
@@ -682,7 +685,22 @@ class FoldActivity : AppCompatActivity() {
                 dialog.dismiss(); entrancePending = true; render()
             }
             .setPositiveButton("Perspectiva 3D") { _, _ -> perspectiveSettings() }
+            .setNeutralButton("Escriptori i apps") { _, _ -> desktopSettings() }
             .setNegativeButton("Tanca", null).show()
+    }
+    private fun desktopSettings() {
+        val desktop = prefs.getBoolean("desktopEnabled", true)
+        val windowed = prefs.getBoolean("windowedApps", true)
+        AlertDialog.Builder(this).setTitle("Escriptori i apps")
+            .setItems(arrayOf("Panells lliures en obrir: " + if(desktop) "activats" else "desactivats",
+                "Demana finestres per a les apps: " + if(windowed) "activat" else "desactivat",
+                "Com funcionen les finestres de MagicOS")) { _,i -> when(i) {
+                0 -> { prefs.edit().putBoolean("desktopEnabled",!desktop).apply(); render() }
+                1 -> prefs.edit().putBoolean("windowedApps",!windowed).apply()
+                2 -> AlertDialog.Builder(this).setTitle("Finestres de les apps")
+                    .setMessage("Els panells de MagicFold es poden moure i redimensionar als temes Windows i macOS amb el mòbil obert.\n\nPer a altres apps, demanem una mida de finestra a Android. MagicOS pot ignorar-la i obrir l’app a pantalla completa. No totes les apps admeten finestres.\n\nA HONOR pots obrir les finestres flotants des de la barra lateral de multifinestra: llisca des d’un lateral, mantén el dit i toca l’app.")
+                    .setPositiveButton("Entesos",null).show()
+            } }.setNegativeButton("Tanca",null).show()
     }
     private fun perspectiveSettings() {
         val enabled = prefs.getBoolean("perspective", true)
@@ -843,7 +861,31 @@ class FoldActivity : AppCompatActivity() {
         }
     }
     private fun openPackage(name: String) { val intent = packageManager.getLaunchIntentForPackage(name); if (intent != null) open(intent) else Toast.makeText(this, "L’aplicació no està instal·lada", Toast.LENGTH_LONG).show() }
-    private fun open(intent: Intent) { try { startActivity(intent) } catch (e: Exception) { Toast.makeText(this, "No hi ha cap aplicació disponible per obrir-ho", Toast.LENGTH_LONG).show() } }
+    private fun open(intent: Intent) {
+        val requestWindow = Build.VERSION.SDK_INT >= 24 && (MetroStyle.windows || MetroStyle.desktop) &&
+            FoldPolicy.expanded(resources.configuration.screenWidthDp, hinge != null) &&
+            prefs.getBoolean("windowedApps",true) && intent.action?.startsWith("android.settings.") != true
+        val options = if(requestWindow) {
+            val area = if(Build.VERSION.SDK_INT >= 30) {
+                val metrics=windowManager.currentWindowMetrics
+                val insets=metrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars())
+                android.graphics.Rect(metrics.bounds).apply { left+=insets.left;top+=insets.top;right-=insets.right;bottom-=insets.bottom }
+            } else android.graphics.Rect().also { window.decorView.getWindowVisibleDisplayFrame(it) }
+            val w=(area.width()*.68f).roundToInt();val h=(area.height()*.76f).roundToInt()
+            android.app.ActivityOptions.makeBasic().setLaunchBounds(android.graphics.Rect(
+                area.centerX()-w/2,area.centerY()-h/2,area.centerX()+w/2,area.centerY()+h/2)).toBundle()
+        } else null
+        try {
+            startActivity(if(requestWindow) Intent(intent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) else intent,options)
+            if(requestWindow && !prefs.getBoolean("windowRequestExplained",false)) {
+                prefs.edit().putBoolean("windowRequestExplained",true).apply()
+                Toast.makeText(this,"Mida de finestra demanada. MagicOS pot obrir l’app a pantalla completa; en aquest cas, fes servir la barra lateral de multifinestra.",Toast.LENGTH_LONG).show()
+            }
+        } catch (_: Exception) {
+            try { startActivity(intent) }
+            catch (_: Exception) { Toast.makeText(this,"No hi ha cap aplicació disponible per obrir-ho",Toast.LENGTH_LONG).show() }
+        }
+    }
     private fun openClock() {
         if (!ClockLauncher.open(this)) Toast.makeText(this, "No s’ha pogut obrir cap app de rellotge en aquest perfil", Toast.LENGTH_LONG).show()
     }

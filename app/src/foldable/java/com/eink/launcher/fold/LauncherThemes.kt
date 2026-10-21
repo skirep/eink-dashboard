@@ -31,9 +31,18 @@ internal object LauncherThemes {
         }
         return false
     }
+    private fun inDesktopWindow(view: View): Boolean {
+        var node = view.parent as? View
+        while(node != null) {
+            if(node is DesktopWorkspace.WorkspaceWindow) return true
+            node = node.parent as? View
+        }
+        return false
+    }
     fun style(view: View) {
         if (!MetroStyle.terminal && !MetroStyle.cyberpunk && !MetroStyle.windows && !MetroStyle.desktop && !MetroStyle.pirate) return
-        if (view is MetroTile && MetroStyle.desktop && view.tag?.toString()?.startsWith("favorite:") != true && view.findViewWithTag<View>("window-chrome") == null) {
+        if(view is MetroTile && inDesktopWindow(view)) view.elevation = 0f
+        if (view is MetroTile && MetroStyle.desktop && !inDesktopWindow(view) && view.tag?.toString()?.startsWith("favorite:") != true && view.findViewWithTag<View>("window-chrome") == null) {
             view.addView(WindowChrome(view.context).apply { tag = "window-chrome" }, 0,
                 LinearLayout.LayoutParams(-1, (22 * view.resources.displayMetrics.density).toInt()))
         }

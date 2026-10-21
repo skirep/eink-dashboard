@@ -1,4 +1,4 @@
-# MagicFold / Magic V2 — v0.13
+# MagicFold / Magic V2 — v0.14
 
 Launcher Android amb estètica Windows 10 Mobile i mosaics translúcids amb vores de llum.
 El temps de **Cabrils** transforma el fons: paisatge en capes, núvols que es desplacen,
@@ -249,3 +249,31 @@ d’aquest tema** restaura l’art o l’escriptori sense esborrar la foto impor
 
 La il·lustració està integrada a `app/src/foldable/res/drawable-nodpi/pirate_harbor.png`.
 La procedència i el prompt de generació són a `docs/THEME_ART.md`.
+
+
+## Escriptori lliure amb el mòbil obert v0.14
+
+Als temes Windows i macOS, la vista ampla mostra finestres pròpies de
+MagicFold: Temps, Agenda, Correu, Notícies i Apps fixades. Arrossega la barra
+superior per moure-les i el cantó inferior per canviar-ne la mida. El botó
+quadrat maximitza/restaura; el signe menys minimitza. Els panells minimitzats
+es recuperen des de la franja inferior o **Panells**. **↺** restaura la distribució.
+La finestra de notícies comença minimitzada per deixar espai als altres panells.
+Les apps fixades es mouen com a grup dins de la seva finestra.
+
+Les posicions, mides, ordre i estat dels panells es guarden per tema. En
+tancar el mòbil torna la vista compacta; en obrir-lo es recupera l’escriptori.
+La cerca i la pàgina d’aplicacions continuen a la dreta. Els gestos de les
+barres i cantons no canvien de pàgina. Trucades i WhatsApp continuen al dock.
+
+**Temes i perspectiva → Escriptori i apps** permet desactivar l’escriptori lliure
+o la petició de finestres externes. MagicFold envia una mida suggerida a Android
+amb `ActivityOptions.setLaunchBounds`; el sistema pot ignorar-la. No podem
+forçar totes les altres apps a executar-se dins de finestres ni incrustar-les
+dins del launcher amb els permisos normals d’una app. Si s’obren a pantalla
+completa, utilitza el dock lateral de multifinestra de MagicOS per fer-les flotants.
+Això depèn de la versió de MagicOS i de l’app. No s’ha verificat en un Honor real.
+
+Fonts primàries:
+- https://developer.android.com/reference/android/app/ActivityOptions#setLaunchBounds(android.graphics.Rect)
+- https://www.honor.com/uk/support/content/en-us15881484/
