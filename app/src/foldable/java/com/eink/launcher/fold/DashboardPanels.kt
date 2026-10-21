@@ -184,7 +184,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
         items.take(if (expanded) 5 else 3).forEachIndexed { index, item ->
             val row = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(76); setPadding(0, dp(8), 0, dp(8)); isFocusable = true }
             val bitmap = images.get(item.image)
-            if (bitmap != null) row.addView(ImageView(activity).apply { setImageBitmap(bitmap); scaleType = ImageView.ScaleType.CENTER_CROP; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO },
+            if (bitmap != null && !MetroStyle.terminal) row.addView(ImageView(activity).apply { setImageBitmap(bitmap); scaleType = ImageView.ScaleType.CENTER_CROP; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO },
                 LinearLayout.LayoutParams(dp(74), dp(60)).apply { rightMargin = dp(10) })
             val labels = column()
             labels.addView(text(item.title, if (source.category == "Món" && index == 0) 18f else 15f).apply { maxLines = 3; ellipsize = TextUtils.TruncateAt.END })

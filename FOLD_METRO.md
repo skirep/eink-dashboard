@@ -1,4 +1,4 @@
-# MagicFold / Magic V2 — v0.9
+# MagicFold / Magic V2 — v0.10
 
 Launcher Android amb estètica Windows 10 Mobile i mosaics translúcids amb vores de llum.
 El temps de **Cabrils** transforma el fons: paisatge en capes, núvols que es desplacen,
@@ -158,3 +158,28 @@ Si l’activitat d’alarmes no existeix o el sistema en denega l’accés, es p
 l’entrada pública del rellotge d’Honor, Huawei, Android o Google. Si no hi ha
 cap rellotge accessible, es mostra un avís i MagicFold continua obert.
 La correcció es valida en emulador; encara cal provar-la al Magic V2 físic.
+
+
+## Temes i perspectiva v0.10
+
+**Configuració → Temes i perspectiva** ofereix Metro i Terminal (MS-DOS / Linux).
+Terminal fa servir text monoespaiat, fons CRT estàtic, finestres rectangulars
+verdes, símbols meteorològics de text i accents ambre. No és un intèrpret de
+comandes. Les mateixes dades i accions continuen disponibles. Les fotos i el
+paisatge es recuperen en tornar a Metro; no s’esborra el fons importat.
+Les miniatures de notícies s’oculten al tema Terminal.
+
+**Perspectiva 3D** permet activar/desactivar el moviment i recalibrar el centre.
+Un sensor de rotació amb fusió giroscòpica inclina els panells fins a 3,5 graus,
+amb suavitzat i translació mínima. S’adapta a la rotació de la pantalla i es
+recalibra en reconstruir la vista després d’obrir/tancar el plegable. No mou
+la barra de Trucades/WhatsApp/Agenda ni el rellotge, i es congela durant els
+gestos tàctils. S’atura a la pàgina d’apps, en perdre el focus o pausar el
+launcher, amb estalvi de bateria, amb els efectes generals desactivats o amb
+les animacions d’Android desactivades. No requereix accés a notificacions.
+Sense sensor de rotació compatible, el launcher continua estàtic.
+
+Les proves verifiquen persistència i canvi de temes, controls principals,
+redimensionament, límits i suavitzat del moviment i transformació real dels
+píxels d’un panell. El comportament del giroscopi físic a Honor encara requereix
+validació al dispositiu.

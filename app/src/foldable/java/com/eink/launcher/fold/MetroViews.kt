@@ -11,14 +11,17 @@ import android.widget.LinearLayout
 import kotlin.math.*
 
 internal object MetroStyle {
-    val background = 0xff080b14.toInt()
-    val text = 0xfff5f7ff.toInt()
-    val muted = 0xffa9b6d0.toInt()
-    val mint = 0xff8af5dc.toInt()
-    val blue = 0xff9cbeff.toInt()
+    var terminal = false
+    val background get() = if (terminal) 0xff030905.toInt() else 0xff080b14.toInt()
+    val text get() = if (terminal) 0xffb7ffc4.toInt() else 0xfff5f7ff.toInt()
+    val muted get() = if (terminal) 0xff80b88c.toInt() else 0xffa9b6d0.toInt()
+    val mint get() = if (terminal) 0xff75f59b.toInt() else 0xff8af5dc.toInt()
+    val blue get() = if (terminal) 0xffefc778.toInt() else 0xff9cbeff.toInt()
     fun surface(start: Int, end: Int, radius: Float = 0f) = GradientDrawable(
-        GradientDrawable.Orientation.TL_BR, intArrayOf(start, end)
-    ).apply { cornerRadius = radius }
+        GradientDrawable.Orientation.TL_BR,
+        if (terminal && start != -1) intArrayOf(0xf20a170e.toInt(), 0xf2050e09.toInt()) else intArrayOf(start, end)
+    ).apply { cornerRadius = if (terminal) 0f else radius
+        if (terminal && start != -1) setStroke(1, 0xff3b8052.toInt()) }
 }
 
 internal class MetroTile(context: Context, start: Int, end: Int) : LinearLayout(context) {
@@ -28,7 +31,7 @@ internal class MetroTile(context: Context, start: Int, end: Int) : LinearLayout(
         background = MetroStyle.surface(
             (start and 0x00ffffff) or 0x99000000.toInt(),
             (end and 0x00ffffff) or 0xd9000000.toInt(), density * 7f
-        ).apply { setStroke((density * .7f).roundToInt().coerceAtLeast(1), 0x3cdbedff) }
+        ).apply { setStroke((density * .7f).roundToInt().coerceAtLeast(1), if (MetroStyle.terminal) MetroStyle.mint else 0x3cdbedff) }
         foreground = RippleDrawable(ColorStateList.valueOf(0x22ffffff), null,
             MetroStyle.surface(-1, -1, density * 7f))
         elevation = 2 * density
@@ -40,6 +43,13 @@ internal class MetroTile(context: Context, start: Int, end: Int) : LinearLayout(
 internal class WeatherArt(context: Context, private val code: Int, private val night: Boolean) : View(context) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(canvas: Canvas) {
+        if (MetroStyle.terminal) {
+            p.color = MetroStyle.mint; p.typeface = Typeface.MONOSPACE
+            p.textSize = resources.displayMetrics.density * 12; p.textAlign = Paint.Align.CENTER
+            val label = when { code < 0 -> "[ -- ]"; code >= 95 -> "[ /!/ ]"; code in 71..77 || code in 85..86 -> "[ * * ]"; code >= 51 -> "[ /// ]"; code >= 2 -> "[ ~~~ ]"; night -> "[ ( ) ]"; else -> "[ (*) ]" }
+            canvas.drawText(label, width / 2f, height / 2f + p.textSize / 3, p)
+            return
+        }
         val s = min(width, height).toFloat()
         canvas.save(); canvas.translate((width - s) / 2f, (height - s) / 2f); canvas.scale(s / 100f, s / 100f)
         if (code < 0) {

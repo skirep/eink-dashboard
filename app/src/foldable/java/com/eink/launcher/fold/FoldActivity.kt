@@ -92,6 +92,8 @@ class FoldActivity : AppCompatActivity() {
     private var dataRenderPending = false
     private var layoutRenderPending = false
     private var touchSequenceActive = false
+    private val perspective by lazy { PanelPerspective(this) }
+    private var resumed = false
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         refreshAgenda()
         if (granted && calendarPickerPending) { calendarPickerPending = false; calendarPicker() }
@@ -151,12 +153,17 @@ class FoldActivity : AppCompatActivity() {
         handler.post(tick)
     }
     override fun onResume() {
-        super.onResume(); refreshAgenda(); renderData()
+        super.onResume(); resumed = true; refreshAgenda(); renderData(); syncPerspective()
         homePrompt?.visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) pages?.let { flushPendingRender(it) }
+        syncPerspective()
+    }
+    override fun onPause() { resumed = false; perspective.touch(false); perspective.enable(false); super.onPause() }
+    private fun syncPerspective() {
+        perspective.enable(resumed && hasWindowFocus() && !appDrawer && effectsAllowed() && prefs.getBoolean("perspective", true))
     }
     private fun renderData() {
         // Data updates must not replace a focused search field or disturb an open dialog.
@@ -179,10 +186,11 @@ class FoldActivity : AppCompatActivity() {
     // The clock, photos and dock live outside the pager. A data refresh must not
     // remove their pressed view between DOWN and UP either.
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) touchSequenceActive = true
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) { touchSequenceActive = true; perspective.touch(true) }
         return try { super.dispatchTouchEvent(event) } finally {
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
                 touchSequenceActive = false
+                perspective.touch(false)
                 pages?.let { pager -> pager.post { flushPendingRender(pager) } }
             }
         }
@@ -219,6 +227,11 @@ class FoldActivity : AppCompatActivity() {
     }
     private fun entrance(view: View, index: Int, active: Boolean) {
         if (!active || !effectsAllowed()) return
+        if (prefs.getBoolean("perspective", true)) {
+            view.alpha = .2f
+            view.animate().alpha(1f).setDuration(520).setStartDelay((index * 45).toLong()).start()
+            return
+        }
         view.alpha = .2f; view.translationY = dp(22).toFloat(); view.rotationX = 4f
         view.animate().alpha(1f).translationY(0f).rotationX(0f).setDuration(520).setStartDelay((index * 45).toLong()).setInterpolator(DecelerateInterpolator()).start()
     }
@@ -239,6 +252,7 @@ class FoldActivity : AppCompatActivity() {
         }
         layoutRenderPending = false
         dataRenderPending = false
+        MetroStyle.terminal = LauncherThemes.id(prefs.getString("theme", LauncherThemes.METRO)) == LauncherThemes.TERMINAL
         saveScroll(); homeScroll = null; rightScroll = null; drawerScroll = null
         val width = resources.configuration.screenWidthDp
         val wide = FoldPolicy.expanded(width, hinge != null)
@@ -248,14 +262,14 @@ class FoldActivity : AppCompatActivity() {
         val sky = snapshot.data?.optJSONObject("current")?.takeIf {
             System.currentTimeMillis() - snapshot.updated in 0..2 * 60 * 60000L
         }
-        val surface = WeatherScene(this, sky?.optInt("weather_code", -1) ?: -1,
+        val surface: FrameLayout = if (MetroStyle.terminal) TerminalScene(this) else WeatherScene(this, sky?.optInt("weather_code", -1) ?: -1,
             sky?.optInt("is_day", 1) == 0, prefs.getBoolean("effects", true), animate,
             if (prefs.getBoolean("photoBlur", true)) softenedWallpaper ?: wallpaper else wallpaper, prefs.getBoolean("photoWeather", true))
         val root = column().apply { setPadding(dp(20), dp(12), dp(20), dp(8)); fitsSystemWindows = true }
         surface.addView(root, FrameLayout.LayoutParams(-1, -1))
         val heading = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val title = column()
-        title.addView(caption("MagicFold     ·     Magic V2", MetroStyle.mint))
+        title.addView(caption(if (MetroStyle.terminal) "C:\\MAGICFOLD> HOME_" else "MagicFold     ·     Magic V2", MetroStyle.mint))
         val hourLine = LinearLayout(this).apply { gravity = Gravity.BOTTOM }
         headerClock = text(clockText(), if (width < 420) 40f else 50f).apply {
             contentDescription = "Obre rellotge i alarmes"; isFocusable = true; setOnClickListener { openClock() }
@@ -346,6 +360,7 @@ class FoldActivity : AppCompatActivity() {
         pager.addOnPageChangeListener(object : ViewPager.SimpleOnPageChangeListener() {
             override fun onPageSelected(position: Int) {
                 appDrawer = position == 1
+                syncPerspective()
                 updateNavigation(position)
                 if (!appDrawer) (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
                     .hideSoftInputFromWindow(window.decorView.windowToken, 0)
@@ -371,7 +386,10 @@ class FoldActivity : AppCompatActivity() {
             dock.addView(control, LinearLayout.LayoutParams(0, dp(68), 1f).apply { if (index < 2) rightMargin = dp(7) })
         }
         root.addView(dock)
+        LauncherThemes.style(root)
         setContentView(surface)
+        perspective.bind(pager)
+        syncPerspective()
     }
 
     private fun addPanels(root: LinearLayout, left: LinearLayout, right: LinearLayout, wide: Boolean) {
@@ -550,7 +568,7 @@ class FoldActivity : AppCompatActivity() {
 
     private fun settings() {
         val effects = if (prefs.getBoolean("effects", true)) "activats" else "desactivats"
-        AlertDialog.Builder(this).setTitle("MagicFold / Magic V2").setItems(arrayOf("Segona ciutat", "Calendaris Google i Outlook", "Efectes visuals: $effects", "Actualitza temps i agenda", "Launcher per defecte", "Configuració d’Android", "Prova els paisatges vius", "Imatge de fons", "Avisos de Gmail i Outlook", "Fonts de notícies")) { _, item ->
+        AlertDialog.Builder(this).setTitle("MagicFold / Magic V2").setItems(arrayOf("Segona ciutat", "Calendaris Google i Outlook", "Efectes visuals: $effects", "Actualitza temps i agenda", "Launcher per defecte", "Configuració d’Android", "Prova els paisatges vius", "Imatge de fons", "Avisos de Gmail i Outlook", "Fonts de notícies", "Temes i perspectiva")) { _, item ->
             when (item) {
                 0 -> cityDialog(); 1 -> calendarPicker()
                 2 -> { prefs.edit().putBoolean("effects", !prefs.getBoolean("effects", true)).apply(); entrancePending = true; render() }
@@ -559,8 +577,29 @@ class FoldActivity : AppCompatActivity() {
                 7 -> wallpaperSettings()
                 8 -> panels.mailSettings()
                 9 -> panels.newsSettings()
+                10 -> themeSettings()
             }
         }.show()
+    }
+    internal fun themeSettings() {
+        val current = LauncherThemes.id(prefs.getString("theme", LauncherThemes.METRO))
+        AlertDialog.Builder(this).setTitle("Temes de MagicFold")
+            .setSingleChoiceItems(arrayOf("Metro · paisatge meteorològic", "Terminal · MS-DOS / Linux"), if (current == LauncherThemes.TERMINAL) 1 else 0) { dialog, index ->
+                prefs.edit().putString("theme", if (index == 1) LauncherThemes.TERMINAL else LauncherThemes.METRO).apply()
+                dialog.dismiss(); entrancePending = true; render()
+            }
+            .setPositiveButton("Perspectiva 3D") { _, _ -> perspectiveSettings() }
+            .setNegativeButton("Tanca", null).show()
+    }
+    private fun perspectiveSettings() {
+        val enabled = prefs.getBoolean("perspective", true)
+        AlertDialog.Builder(this).setTitle("Perspectiva amb el giroscopi")
+            .setMessage("Els panells s’inclinen suaument quan mous el mòbil (màxim 3,5°). S’aturen mentre toques la pantalla, a la pàgina d’apps, sense focus, amb estalvi de bateria o amb animacions desactivades.\n\n" +
+                if (perspective.available) "Deixa el mòbil en una posició còmoda i prem Recalibra per fixar el centre. Funciona als dos temes." else "Aquest dispositiu no exposa cap sensor de rotació compatible. Els panells continuen estàtics.")
+            .setPositiveButton(if (enabled) "Desactiva" else "Activa") { _, _ ->
+                prefs.edit().putBoolean("perspective", !enabled).apply(); syncPerspective()
+            }.setNeutralButton("Recalibra") { _, _ -> perspective.recalibrate() }
+            .setNegativeButton("Tanca", null).show()
     }
     internal fun wallpaperSettings() {
         if (wallpaperJob?.isActive == true) {
