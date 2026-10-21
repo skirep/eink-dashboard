@@ -10,23 +10,47 @@ internal object LauncherThemes {
     const val METRO = "metro"
     const val TERMINAL = "terminal"
     const val CYBERPUNK = "cyberpunk"
-    val ids = listOf(METRO, TERMINAL, CYBERPUNK)
+    const val WINDOWS = "windows10"
+    const val DESKTOP = "macos"
+    const val PIRATE = "monkey"
+    val ids = listOf(METRO, TERMINAL, CYBERPUNK, WINDOWS, DESKTOP, PIRATE)
+    val labels = arrayOf("Metro · paisatge meteorològic", "Terminal · MS-DOS / Linux", "Cyberpunk · Night City", "Windows 10 Mobile", "macOS · Escriptori", "Monkey Island · Port pirata")
     fun id(value: String?) = value?.takeIf { it in ids } ?: METRO
     fun select(value: String?) {
         MetroStyle.terminal = id(value) == TERMINAL
         MetroStyle.cyberpunk = id(value) == CYBERPUNK
+        MetroStyle.windows = id(value) == WINDOWS
+        MetroStyle.desktop = id(value) == DESKTOP
+        MetroStyle.pirate = id(value) == PIRATE
+    }
+    private fun onDesktopSurface(view: View): Boolean {
+        var node: View? = view
+        while (node != null) {
+            if (node is MetroTile || node.tag == "desktop-surface") return true
+            node = node.parent as? View
+        }
+        return false
     }
     fun style(view: View) {
-        if (!MetroStyle.terminal && !MetroStyle.cyberpunk) return
+        if (!MetroStyle.terminal && !MetroStyle.cyberpunk && !MetroStyle.windows && !MetroStyle.desktop && !MetroStyle.pirate) return
+        if (view is MetroTile && MetroStyle.desktop && view.tag?.toString()?.startsWith("favorite:") != true && view.findViewWithTag<View>("window-chrome") == null) {
+            view.addView(WindowChrome(view.context).apply { tag = "window-chrome" }, 0,
+                LinearLayout.LayoutParams(-1, (22 * view.resources.displayMetrics.density).toInt()))
+        }
         if (view is TextView) {
-            view.typeface = Typeface.MONOSPACE
+            view.typeface = MetroStyle.font
             view.letterSpacing = 0f
-            view.setTextColor(if (view is Button && view.isSelected) MetroStyle.blue else MetroStyle.text)
+            view.setTextColor(when {
+                view is Button && view.isSelected && MetroStyle.windows -> Color.WHITE
+                view is Button && view.isSelected -> MetroStyle.blue
+                MetroStyle.desktop && view !is Button && !onDesktopSurface(view) -> Color.WHITE
+                else -> MetroStyle.text
+            })
             if (view is EditText) view.setHintTextColor(MetroStyle.muted)
         }
         // Keep actual app icons and news/photos recognizable in Cyberpunk.
-        if (view is ImageView && (MetroStyle.terminal || view.tag == "theme-icon"))
-            view.setColorFilter(MetroStyle.mint, PorterDuff.Mode.SRC_IN)
+        if (view is ImageView && (MetroStyle.terminal || view.tag == "theme-icon" || view.tag == "desktop-dock-icon"))
+            view.setColorFilter(if (MetroStyle.windows || view.tag == "desktop-dock-icon") Color.WHITE else MetroStyle.mint, PorterDuff.Mode.SRC_IN)
         if (view is ViewGroup) (0 until view.childCount).forEach { style(view.getChildAt(it)) }
     }
 }

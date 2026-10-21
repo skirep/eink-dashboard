@@ -18,7 +18,8 @@ internal class WeatherScene(
     private val motion: Boolean,
     private val unfold: Boolean = false,
     val wallpaper: Bitmap? = null,
-    private val weatherOverlay: Boolean = true
+    private val weatherOverlay: Boolean = true,
+    private val nightArtwork: Boolean = false
 ) : FrameLayout(context) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val path = Path()
@@ -88,7 +89,7 @@ internal class WeatherScene(
             imageBounds.set((w - iw) / 2f, (h - ih) / 2f, (w + iw) / 2f, (h + ih) / 2f)
             imagePaint.colorFilter = if (wallpaper != null && weatherOverlay && known) {
                 val matrix = ColorMatrix().apply { setSaturation(if (wet || snow || cloudy) .55f else 1f) }
-                val light = when { night -> floatArrayOf(.40f, .48f, .65f); wet || snow -> floatArrayOf(.65f, .76f, .85f); cloudy -> floatArrayOf(.82f, .88f, .95f); else -> floatArrayOf(1f, 1f, 1f) }
+                val light = when { night && nightArtwork -> floatArrayOf(1f, 1f, 1f); night -> floatArrayOf(.40f, .48f, .65f); wet || snow -> floatArrayOf(.65f, .76f, .85f); cloudy -> floatArrayOf(.82f, .88f, .95f); else -> floatArrayOf(1f, 1f, 1f) }
                 matrix.postConcat(ColorMatrix(floatArrayOf(light[0],0f,0f,0f,0f, 0f,light[1],0f,0f,0f, 0f,0f,light[2],0f,0f, 0f,0f,0f,1f,0f)))
                 ColorMatrixColorFilter(matrix)
             } else null

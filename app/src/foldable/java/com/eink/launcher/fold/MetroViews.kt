@@ -14,18 +14,28 @@ import kotlin.math.*
 internal object MetroStyle {
     var terminal = false
     var cyberpunk = false
-    val background get() = if (terminal) 0xff030905.toInt() else if (cyberpunk) 0xff090616.toInt() else 0xff080b14.toInt()
-    val text get() = if (terminal) 0xffb7ffc4.toInt() else 0xfff5f7ff.toInt()
-    val muted get() = if (terminal) 0xff80b88c.toInt() else if (cyberpunk) 0xffb8b2d6.toInt() else 0xffa9b6d0.toInt()
-    val mint get() = if (terminal) 0xff75f59b.toInt() else if (cyberpunk) 0xff65f7ff.toInt() else 0xff8af5dc.toInt()
-    val blue get() = if (terminal) 0xffefc778.toInt() else if (cyberpunk) 0xffff9ce3.toInt() else 0xff9cbeff.toInt()
+    var windows = false
+    var desktop = false
+    var pirate = false
+    val background get() = when { terminal -> 0xff030905; cyberpunk -> 0xff090616; windows -> 0xff000000; desktop -> 0xffe9eef8; pirate -> 0xff100e23; else -> 0xff080b14 }.toInt()
+    val text get() = when { terminal -> 0xffb7ffc4; desktop -> 0xff202b3e; pirate -> 0xffffecc0; else -> 0xfff5f7ff }.toInt()
+    val muted get() = when { terminal -> 0xff80b88c; cyberpunk -> 0xffb8b2d6; desktop -> 0xff4c5c73; pirate -> 0xffd7bc85; else -> 0xffa9b6d0 }.toInt()
+    val mint get() = when { terminal -> 0xff75f59b; cyberpunk -> 0xff65f7ff; windows -> 0xff52c4ff; desktop -> 0xff005ac1; pirate -> 0xffffd16e; else -> 0xff8af5dc }.toInt()
+    val blue get() = when { terminal -> 0xffefc778; cyberpunk -> 0xffff9ce3; desktop -> 0xff005ac1; pirate -> 0xffa2e3d2; else -> 0xff9cbeff }.toInt()
+    val radius get() = when { terminal || windows || pirate -> 0f; desktop -> 16f; else -> 7f }
+    val font get() = when { terminal || cyberpunk -> Typeface.MONOSPACE; pirate -> Typeface.create("serif", Typeface.NORMAL); windows -> Typeface.create("sans-serif-light", Typeface.NORMAL); else -> Typeface.create("sans-serif", Typeface.NORMAL) }
     fun surface(start: Int, end: Int, radius: Float = 0f) = GradientDrawable(
         GradientDrawable.Orientation.TL_BR,
         if (terminal && start != -1) intArrayOf(0xf20a170e.toInt(), 0xf2050e09.toInt())
-        else if (cyberpunk && start != -1) intArrayOf(0xf227143f.toInt(), 0xf00b1830.toInt()) else intArrayOf(start, end)
-    ).apply { cornerRadius = if (terminal) 0f else radius
+        else if (cyberpunk && start != -1) intArrayOf(0xf227143f.toInt(), 0xf00b1830.toInt())
+        else if (desktop && start != -1) intArrayOf(0xfaf9fbff.toInt(), 0xf5e9eef8.toInt())
+        else if (pirate && start != -1) intArrayOf(0xf51c182c.toInt(), 0xed10242c.toInt())
+        else if (windows && start != -1) intArrayOf(0xff0078d4.toInt(), 0xff0078d4.toInt()) else intArrayOf(start, end)
+    ).apply { cornerRadius = if (terminal || windows || pirate) 0f else radius
         if (terminal && start != -1) setStroke(1, 0xff3b8052.toInt())
-        else if (cyberpunk && start != -1) setStroke(2, 0xff6669b8.toInt()) }
+        else if (cyberpunk && start != -1) setStroke(2, 0xff6669b8.toInt())
+        else if (desktop && start != -1) setStroke(1, 0x90ffffff.toInt())
+        else if (pirate && start != -1) setStroke(2, 0xffad7a42.toInt()) }
 }
 
 internal class MetroTile(context: Context, start: Int, end: Int) : LinearLayout(context) {
@@ -34,14 +44,21 @@ internal class MetroTile(context: Context, start: Int, end: Int) : LinearLayout(
         val density = resources.displayMetrics.density
         background = MetroStyle.surface(
             (start and 0x00ffffff) or 0x99000000.toInt(),
-            (end and 0x00ffffff) or 0xd9000000.toInt(), density * 7f
-        ).apply { setStroke((density * .7f).roundToInt().coerceAtLeast(1), if (MetroStyle.terminal || MetroStyle.cyberpunk) MetroStyle.mint else 0x3cdbedff) }
+            (end and 0x00ffffff) or 0xd9000000.toInt(), density * MetroStyle.radius
+        ).apply { if (!MetroStyle.windows) setStroke((density * .7f).roundToInt().coerceAtLeast(1), when {
+            MetroStyle.terminal || MetroStyle.cyberpunk -> MetroStyle.mint
+            MetroStyle.desktop -> 0xccffffff.toInt()
+            MetroStyle.pirate -> 0xffbd8d47.toInt()
+            else -> 0x3cdbedff
+        }) }
+        if (MetroStyle.windows) background = android.graphics.drawable.ColorDrawable(start or 0xff000000.toInt())
+        if (MetroStyle.pirate) background = PirateFrame()
         foreground = RippleDrawable(ColorStateList.valueOf(0x22ffffff), null,
-            MetroStyle.surface(-1, -1, density * 7f))
-        elevation = 10 * density
+            MetroStyle.surface(-1, -1, density * MetroStyle.radius))
+        elevation = (if (MetroStyle.windows) 0 else if (MetroStyle.desktop) 14 else 10) * density
         outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, if (MetroStyle.terminal) 0f else density * 7f)
+                outline.setRoundRect(0, 0, view.width, view.height, density * MetroStyle.radius)
                 outline.alpha = 1f
             }
         }

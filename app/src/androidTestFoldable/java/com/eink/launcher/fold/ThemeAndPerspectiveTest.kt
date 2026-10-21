@@ -163,6 +163,86 @@ class ThemeAndPerspectiveTest {
         }
     }
 
+
+    @Test fun windowsMobileHasFlatTilesAlphabeticalAppsAndPersists() = signatureTheme(LauncherThemes.WINDOWS, "Inici")
+    @Test fun desktopHasWindowChromeReadableCardsAndDock() = signatureTheme(LauncherThemes.DESKTOP, "MagicFold · Escriptori")
+    @Test fun pirateHasArtworkAndFunctionalCaptainMap() = signatureTheme(LauncherThemes.PIRATE, "El quadern del capità")
+
+    private fun signatureTheme(theme: String, heading: String) {
+        val prefs = context.getSharedPreferences("fold-metro", android.content.Context.MODE_PRIVATE)
+        val original = prefs.getString("theme", null)
+        val pins = prefs.getString("pins", null)
+        val photoKey = "themePhoto_$theme"
+        val oldPhoto = if (prefs.contains(photoKey)) prefs.getBoolean(photoKey, false) else null
+        val device = UiDevice.getInstance(instrumentation)
+        val selected = context.packageManager.queryIntentActivities(android.content.Intent(android.content.Intent.ACTION_MAIN)
+            .addCategory(android.content.Intent.CATEGORY_LAUNCHER), 0).filter { it.activityInfo.packageName != context.packageName }
+            .map { android.content.ComponentName(it.activityInfo.packageName, it.activityInfo.name).flattenToString() }.distinct().take(6)
+        try {
+            prefs.edit().putString("theme", LauncherThemes.METRO).putString("pins", org.json.JSONArray(selected).toString()).putBoolean(photoKey, false).commit()
+            device.executeShellCommand("wm size 1080x1920"); device.executeShellCommand("wm density 420")
+            ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
+                assertTrue(device.wait(Until.hasObject(By.desc("Configuració")), 10000))
+                scenario.onActivity { it.themeSettings() }
+                val label = LauncherThemes.labels[LauncherThemes.ids.indexOf(theme)]
+                assertTrue(device.wait(Until.hasObject(By.text(label)), 5000))
+                device.findObject(By.text(label)).click()
+                assertTrue(device.wait(Until.hasObject(By.text(heading)), 10000))
+                scenario.recreate()
+                assertTrue(device.wait(Until.hasObject(By.text(heading)), 10000))
+                assertEquals(theme, prefs.getString("theme", null))
+                assertTrue(device.hasObject(By.desc("Obre rellotge i alarmes")))
+                assertTrue(device.hasObject(By.desc("Trucades"))); assertTrue(device.hasObject(By.desc("WhatsApp")))
+                assertFalse(device.hasObject(By.clazz("android.widget.EditText")))
+                scenario.onActivity { activity ->
+                    val cards = panels(activity.window.decorView)
+                    assertTrue(cards.isNotEmpty())
+                    if (theme == LauncherThemes.WINDOWS) {
+                        assertTrue(cards.all { it.elevation == 0f && it.background is android.graphics.drawable.ColorDrawable })
+                    }
+                    if (theme == LauncherThemes.DESKTOP) {
+                        assertTrue(cards.any { it.findViewWithTag<View>("window-chrome") != null })
+                        assertTrue(androidx.core.graphics.ColorUtils.calculateContrast(MetroStyle.text, 0xffe9eef8.toInt()) > 7)
+                    }
+                    if (theme == LauncherThemes.PIRATE) {
+                        assertTrue(cards.all { it.background is PirateFrame })
+                        assertTrue(PirateBackdrop.image(activity).width > 1000)
+                    }
+                }
+                device.executeShellCommand("mkdir -p /sdcard/Download/fold-metro")
+                device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/$theme-compact.png")
+                device.executeShellCommand("wm size 1920x1920")
+                assertTrue(device.wait(Until.hasObject(By.textContains("Vista ampla")), 10000))
+                device.waitForIdle()
+                device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/$theme-expanded.png")
+                device.findObject(By.desc("Pàgina aplicacions")).click()
+                assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 10000))
+                if (theme == LauncherThemes.WINDOWS) assertTrue(device.hasObject(By.descContains("Grup ")))
+                device.pressBack()
+                assertTrue(device.wait(Until.hasObject(By.text(heading)), 10000))
+                if (theme == LauncherThemes.PIRATE) {
+                    device.findObject(By.desc("Mapa del capità")).click()
+                    assertTrue(device.wait(Until.hasObject(By.text("Port · Temps de Cabrils")), 5000))
+                    device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/pirate-map.png")
+                    device.findObject(By.text("Port · Temps de Cabrils")).click()
+                    assertTrue(device.wait(Until.hasObject(By.text("Actualitza")), 5000))
+                    device.pressBack()
+                }
+                scenario.onActivity { it.themeSettings() }
+                device.findObject(By.text(LauncherThemes.labels[0])).click()
+                assertTrue(device.wait(Until.hasObject(By.text("MagicFold     ·     Magic V2")), 10000))
+            }
+        } finally {
+            prefs.edit().apply {
+                if (original == null) remove("theme") else putString("theme", original)
+                if (pins == null) remove("pins") else putString("pins", pins)
+                if (oldPhoto == null) remove(photoKey) else putBoolean(photoKey, oldPhoto)
+            }.commit()
+            LauncherThemes.select(original)
+            device.executeShellCommand("wm size reset"); device.executeShellCommand("wm density reset")
+        }
+    }
+
     @Test fun terminalThemePersistsAndKeepsClockAppsAndDockAvailable() {
         val prefs = context.getSharedPreferences("fold-metro", android.content.Context.MODE_PRIVATE)
         val original = prefs.getString("theme", null)

@@ -1,4 +1,4 @@
-# MagicFold / Magic V2 — v0.12
+# MagicFold / Magic V2 — v0.13
 
 Launcher Android amb estètica Windows 10 Mobile i mosaics translúcids amb vores de llum.
 El temps de **Cabrils** transforma el fons: paisatge en capes, núvols que es desplacen,
@@ -220,3 +220,32 @@ meteorològic o la foto triada. Conserva el temps i els efectes configurats.
 Les proves cobreixen la selecció i persistència del tema, canvi de mida,
 contrast, dock i accés a totes les apps; també verifiquen més d’una fila
 d’apps fixades en vista compacta i ampla i la nova resposta del moviment.
+
+
+## Tres temes amb composició pròpia v0.13
+
+**Windows 10 Mobile**: fons negre, mosaics plans i rectangulars, tipografia
+lleugera, apps fixades a la part superior i llistat d’apps agrupat per lletres.
+És una recreació visual dins d’Android; no substitueix el sistema ni clona les
+apps, la barra d’estat o el comportament intern de Windows Phone.
+
+**macOS · Escriptori**: fons de cintes de llum amb moviment suau i tons segons
+el temps, barra superior clara, finestres arrodonides amb els tres cercles
+decoratius i dock centrat amb icones de colors i accés a la pàgina d’apps.
+Els cercles de les finestres són decoratius, no controls de finestres Android.
+
+**Monkey Island · Port pirata**: il·lustració original de port caribeny en pixel art,
+marcs de fusta i llautó, text de quadern i dock d’inventari. El botó **Mapa**
+obre el Mapa del capità: Port mostra el temps real de Cabrils, Quadern obre
+l’agenda, Taverna obre els titulars i Missatges obre WhatsApp. La nit del port
+és una elecció artística; les dades meteorològiques continuen sent reals.
+No s’utilitzen fitxers ni personatges extrets del joc original.
+
+Els tres temes conserven el rellotge/alarmes, calendaris, avisos de correu,
+notícies, totes les apps fixades, el gest entre pàgines i la perspectiva del sensor.
+Cada tema nou mostra primer el seu fons propi. Si hi importes una foto,
+aquesta passa a ser el fons d’aquell tema. **Imatge de fons → Recupera el fons
+d’aquest tema** restaura l’art o l’escriptori sense esborrar la foto importada.
+
+La il·lustració està integrada a `app/src/foldable/res/drawable-nodpi/pirate_harbor.png`.
+La procedència i el prompt de generació són a `docs/THEME_ART.md`.

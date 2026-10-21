@@ -49,11 +49,13 @@ class FoldActivity : AppCompatActivity() {
     }
     internal fun importWallpaper(uri: Uri) {
         val pending = wallpaperJob
+        val photoTheme = LauncherThemes.id(prefs.getString("theme", LauncherThemes.METRO))
         Toast.makeText(this, "Preparació de la imatge…", Toast.LENGTH_SHORT).show()
         wallpaperJob = lifecycleScope.launch {
             pending?.join()
             try {
                 wallpaper = wallpaperStore.import(uri)
+                prefs.edit().putBoolean("themePhoto_$photoTheme", true).apply()
                 softenedWallpaper = withContext(Dispatchers.Default) { wallpaper?.let(WeatherBackdrop::soften) }
                 renderData()
                 Toast.makeText(this@FoldActivity, "Imatge de fons desada", Toast.LENGTH_SHORT).show()
@@ -263,25 +265,37 @@ class FoldActivity : AppCompatActivity() {
         val sky = snapshot.data?.optJSONObject("current")?.takeIf {
             System.currentTimeMillis() - snapshot.updated in 0..2 * 60 * 60000L
         }
-        val surface: FrameLayout = if (MetroStyle.terminal) TerminalScene(this) else WeatherScene(this, sky?.optInt("weather_code", -1) ?: -1,
-            sky?.optInt("is_day", 1) == 0, prefs.getBoolean("effects", true), animate,
-            if (prefs.getBoolean("photoBlur", true)) softenedWallpaper ?: wallpaper else wallpaper, prefs.getBoolean("photoWeather", true))
+        val theme = LauncherThemes.id(prefs.getString("theme", LauncherThemes.METRO))
+        val ownBackdrop = (MetroStyle.windows || MetroStyle.desktop || MetroStyle.pirate) && !prefs.getBoolean("themePhoto_$theme", false)
+        val surface: FrameLayout = if (MetroStyle.terminal) TerminalScene(this)
+        else if (MetroStyle.desktop && (ownBackdrop || wallpaper == null)) DesktopScene(this, sky?.optInt("weather_code", -1) ?: -1, sky?.optInt("is_day", 1) == 0, prefs.getBoolean("effects", true))
+        else WeatherScene(this, sky?.optInt("weather_code", -1) ?: -1,
+            sky?.optInt("is_day", 1) == 0, prefs.getBoolean("effects", true) && !(MetroStyle.windows && ownBackdrop), animate,
+            if (MetroStyle.pirate && (ownBackdrop || wallpaper == null)) PirateBackdrop.image(this) else if (prefs.getBoolean("photoBlur", true)) softenedWallpaper ?: wallpaper else wallpaper, prefs.getBoolean("photoWeather", true),
+            nightArtwork = MetroStyle.pirate && (ownBackdrop || wallpaper == null))
         if (MetroStyle.cyberpunk) surface.addView(CyberpunkOverlay(this), FrameLayout.LayoutParams(-1, -1))
+        if (MetroStyle.windows) surface.addView(View(this).apply { setBackgroundColor(if (ownBackdrop || wallpaper == null) Color.BLACK else 0x99000000.toInt()) }, FrameLayout.LayoutParams(-1, -1))
         val root = column().apply { setPadding(dp(20), dp(12), dp(20), dp(8)); fitsSystemWindows = true }
         surface.addView(root, FrameLayout.LayoutParams(-1, -1))
-        val heading = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val heading = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            if (MetroStyle.desktop) { tag = "desktop-surface"; background = MetroStyle.surface(0xffedf1fa.toInt(), 0xffdce5f5.toInt(), dp(14).toFloat()); setPadding(dp(12), dp(8), dp(12), dp(8)) }
+        }
         val title = column()
-        title.addView(caption(when {
+        title.addView(text(when {
             MetroStyle.terminal -> "C:\\MAGICFOLD> HOME_"
             MetroStyle.cyberpunk -> "MAGICFOLD // NIGHT CITY"
+            MetroStyle.windows -> "Inici"
+            MetroStyle.desktop -> "MagicFold · Escriptori"
+            MetroStyle.pirate -> "El quadern del capità"
             else -> "MagicFold     ·     Magic V2"
-        }, MetroStyle.mint))
+        }, if (MetroStyle.windows) 30f else if (MetroStyle.pirate) 17f else 11f, MetroStyle.mint))
         val hourLine = LinearLayout(this).apply { gravity = Gravity.BOTTOM }
-        headerClock = text(clockText(), if (width < 420) 40f else 50f).apply {
+        headerClock = text(clockText(), if (MetroStyle.windows || MetroStyle.desktop) 28f else if (MetroStyle.pirate) 36f else if (width < 420) 40f else 50f).apply {
             contentDescription = "Obre rellotge i alarmes"; isFocusable = true; setOnClickListener { openClock() }
         }.also { hourLine.addView(it) }
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        if (resources.configuration.fontScale <= 1.15f) hourLine.addView(text(when (hour) { in 6..12 -> "Bon dia."; in 13..19 -> "Bona tarda."; else -> "Bona nit." }, 14f, MetroStyle.muted), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(14); bottomMargin = dp(12) })
+        if (!MetroStyle.windows && !MetroStyle.desktop && !MetroStyle.pirate && resources.configuration.fontScale <= 1.15f) hourLine.addView(text(when (hour) { in 6..12 -> "Bon dia."; in 13..19 -> "Bona tarda."; else -> "Bona nit." }, 14f, MetroStyle.muted), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(14); bottomMargin = dp(12) })
         title.addView(hourLine)
         title.addView(caption("◷  Rellotge i alarmes").apply {
             isFocusable = true; setOnClickListener { openClock() }; contentDescription = "Rellotge i alarmes"
@@ -290,9 +304,10 @@ class FoldActivity : AppCompatActivity() {
         heading.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
         val controls = column().apply { gravity = Gravity.CENTER }
         controls.addView(action("⚙") { settings() }.apply { contentDescription = "Configuració" }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        controls.addView(text("▧  Fotos", 12f).apply {
+        controls.addView(text(if (MetroStyle.pirate) "✧  Mapa" else "▧  Fotos", 12f).apply {
             minimumHeight = dp(48); gravity = Gravity.CENTER; isFocusable = true
-            contentDescription = "Les meves fotos"; setOnClickListener { wallpaperSettings() }
+            contentDescription = if (MetroStyle.pirate) "Mapa del capità" else "Les meves fotos"
+            setOnClickListener { if (MetroStyle.pirate) captainMap() else wallpaperSettings() }
         }, LinearLayout.LayoutParams(-2, dp(48)))
         heading.addView(controls)
         root.addView(heading)
@@ -317,28 +332,46 @@ class FoldActivity : AppCompatActivity() {
         navigation.addView(appsTab, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(navigation)
         val homePage = column()
-        val appsPage = column()
+        val appsPage = column().apply {
+            if (MetroStyle.desktop) { tag = "desktop-surface"; background = MetroStyle.surface(0xffedf1fa.toInt(), 0xffdce5f5.toInt(), dp(14).toFloat()); setPadding(dp(14), dp(8), dp(14), 0) }
+        }
         appsPage.addView(caption("TOTES LES APLICACIONS", MetroStyle.mint))
         renderDrawer(appsPage)
         run {
             val left = column().apply { clipChildren = false }; val right = column().apply { clipChildren = false }
-            addWeather(left, wide, animate)
-            if (wide) {
-                addAgenda(left, 3, animate)
-                block(left, caption("A MÀ"), 7)
+            if (MetroStyle.windows) {
+                block(left, caption("APLICACIONS FIXADES"), 6)
+                addFavorites(left, if (wide) 4 else 3, animate)
+                addWeather(left, wide, animate)
+                addAgenda(left, if (wide) 3 else 1, animate)
+                panels.mail(if (wide) right else left, wide)
+                panels.news(if (wide) right else left, wide)
+            } else if (MetroStyle.desktop) {
+                addWeather(left, wide, animate)
+                block(left, caption("APLICACIONS PREFERIDES"), 6)
                 addFavorites(left, 4, animate)
-                panels.mail(right, true)
-                panels.news(right, true)
+                addAgenda(if (wide) right else left, if (wide) 3 else 1, animate)
+                panels.mail(if (wide) right else left, wide)
+                panels.news(if (wide) right else left, wide)
             } else {
-                val overview = LinearLayout(this).apply { clipChildren = false }
-                val agendaColumn = column().apply { clipChildren = false }; val mailColumn = column().apply { clipChildren = false }
-                addAgenda(agendaColumn, 1, animate); panels.mail(mailColumn, false)
-                overview.addView(agendaColumn, LinearLayout.LayoutParams(0, -2, 1.45f).apply { rightMargin = dp(8) })
-                overview.addView(mailColumn, LinearLayout.LayoutParams(0, -2, 1f))
-                block(left, overview, 0)
-                panels.news(left, false)
-                block(left, caption("A MÀ"), 7)
-                addFavorites(left, if (width >= 360 && resources.configuration.fontScale <= 1.15f) 4 else 3, animate)
+                addWeather(left, wide, animate)
+                if (wide) {
+                    addAgenda(left, 3, animate)
+                    block(left, caption("A MÀ"), 7)
+                    addFavorites(left, 4, animate)
+                    panels.mail(right, true)
+                    panels.news(right, true)
+                } else {
+                    val overview = LinearLayout(this).apply { clipChildren = false }
+                    val agendaColumn = column().apply { clipChildren = false }; val mailColumn = column().apply { clipChildren = false }
+                    addAgenda(agendaColumn, 1, animate); panels.mail(mailColumn, false)
+                    overview.addView(agendaColumn, LinearLayout.LayoutParams(0, -2, 1.45f).apply { rightMargin = dp(8) })
+                    overview.addView(mailColumn, LinearLayout.LayoutParams(0, -2, 1f))
+                    block(left, overview, 0)
+                    panels.news(left, false)
+                    block(left, caption("A MÀ"), 7)
+                    addFavorites(left, if (width >= 360 && resources.configuration.fontScale <= 1.15f) 4 else 3, animate)
+                }
             }
             homePrompt = action("Estableix com a inici") { chooseHome() }.apply {
                 visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
@@ -380,22 +413,43 @@ class FoldActivity : AppCompatActivity() {
             }
         })
         root.addView(pager, LinearLayout.LayoutParams(-1, 0, 1f))
-        val dock = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8), 0, 0) }
+        val dock = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(5), dp(8), dp(5), dp(4))
+            if (MetroStyle.desktop) { tag = "desktop-surface"; background = MetroStyle.surface(0xeef0f4ff.toInt(), 0xdde0e6f4.toInt(), dp(22).toFloat()) }
+            if (MetroStyle.pirate) background = PirateFrame()
+        }
         data class DockAction(val label: String, val icon: Int, val click: () -> Unit)
-        listOf(DockAction("Trucades", R.drawable.magic_phone) { open(Intent(Intent.ACTION_DIAL)) },
+        val dockItems = mutableListOf(DockAction("Trucades", R.drawable.magic_phone) { open(Intent(Intent.ACTION_DIAL)) },
             DockAction("WhatsApp", R.drawable.magic_whatsapp) { openWhatsApp() },
-            DockAction("Agenda", R.drawable.magic_calendar) { openCalendar() }).forEachIndexed { index, item ->
+            DockAction("Agenda", R.drawable.magic_calendar) { openCalendar() })
+        if (MetroStyle.desktop) dockItems += DockAction("Apps", android.R.drawable.ic_menu_sort_by_size) { showApps(true) }
+        if (MetroStyle.pirate) dockItems += DockAction("Mapa", android.R.drawable.ic_menu_compass) { captainMap() }
+        dockItems.forEachIndexed { index, item ->
             val control = column().apply {
                 gravity = Gravity.CENTER; minimumHeight = dp(64); isFocusable = true
-                background = MetroStyle.surface(0xdd152c44.toInt(), 0xdd0e2034.toInt(), dp(9).toFloat())
+                background = if (MetroStyle.desktop) null else if (MetroStyle.pirate) PirateFrame() else MetroStyle.surface(0xdd152c44.toInt(), 0xdd0e2034.toInt(), dp(9).toFloat())
                 contentDescription = item.label; setOnClickListener { item.click() }
                 if (item.label == "Agenda") setOnLongClickListener { calendarPicker(); true }
-                addView(ImageView(this@FoldActivity).apply { tag = "theme-icon"; setImageResource(item.icon); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(29), dp(29)))
+                addView(ImageView(this@FoldActivity).apply {
+                    tag = if (MetroStyle.desktop) "desktop-dock-icon" else "theme-icon"
+                    setImageResource(item.icon); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    if (MetroStyle.desktop) {
+                        setPadding(dp(6), dp(6), dp(6), dp(6))
+                        background = android.graphics.drawable.GradientDrawable().apply {
+                            setColor(intArrayOf(0xff29af65.toInt(), 0xff15aa8b.toInt(), 0xff3875df.toInt(), 0xff5a9ee7.toInt())[index]); cornerRadius = dp(9).toFloat()
+                        }
+                    }
+                }, LinearLayout.LayoutParams(dp(if (MetroStyle.desktop) 36 else 29), dp(if (MetroStyle.desktop) 36 else 29)))
                 addView(text(item.label, 12f).apply { gravity = Gravity.CENTER })
             }
-            dock.addView(control, LinearLayout.LayoutParams(0, dp(68), 1f).apply { if (index < 2) rightMargin = dp(7) })
+            dock.addView(control, LinearLayout.LayoutParams(0, dp(68), 1f).apply { if (index < dockItems.lastIndex) rightMargin = dp(7) })
         }
-        root.addView(dock)
+        if (MetroStyle.desktop) {
+            val dockShelf = FrameLayout(this)
+            dockShelf.addView(dock, FrameLayout.LayoutParams(if (wide) dp(420) else -1, -2, Gravity.CENTER))
+            root.addView(dockShelf, LinearLayout.LayoutParams(-1, -2))
+        } else root.addView(dock)
         LauncherThemes.style(root)
         setContentView(surface)
         // The pager has no adapter children until its first layout. Bind the
@@ -562,7 +616,15 @@ class FoldActivity : AppCompatActivity() {
             list.removeAllViews()
             val visible = apps().filter { it.loadLabel(packageManager).toString().contains(search, true) }
             if (visible.isEmpty()) list.addView(text("Cap aplicació coincideix amb la cerca", 18f, MetroStyle.muted))
+            var initial = ""
             visible.forEach { app ->
+                if (MetroStyle.windows) {
+                    val letter = app.loadLabel(packageManager).toString().take(1).uppercase(Locale.getDefault())
+                    if (letter != initial) {
+                        initial = letter
+                        list.addView(text(letter, 28f, MetroStyle.mint).apply { minimumHeight = dp(48); contentDescription = "Grup $letter" })
+                    }
+                }
                 val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(64) }
                 row.addView(ImageView(this).apply { setImageDrawable(app.loadIcon(packageManager)); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(36), dp(36)))
                 row.addView(text(app.loadLabel(packageManager).toString() + if (key(app) in pins()) "  ▪" else "", 20f), LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(14) })
@@ -576,6 +638,21 @@ class FoldActivity : AppCompatActivity() {
         })
         val scroll = ScrollView(this).apply { addView(list) }; drawerScroll = scroll
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f)); fill(); scroll.post { scroll.scrollTo(0, drawerY) }
+    }
+
+    internal fun captainMap() {
+        val body = column().apply { setPadding(dp(16), dp(8), dp(16), dp(8)) }
+        body.addView(CaptainChart(this).apply { contentDescription = "Mapa il·lustrat del capità" }, LinearLayout.LayoutParams(-1, dp(160)))
+        body.addView(text("Tria el teu pròxim destí", 18f, MetroStyle.mint))
+        val dialog = AlertDialog.Builder(this).setTitle("Mapa del capità").setView(body).setNegativeButton("Torna a bord", null).create()
+        listOf("Port · Temps de Cabrils" to { weatherDetails(WeatherLocations.cabrils) },
+            "Quadern · Agenda" to { openCalendar() },
+            "Taverna · Notícies" to { panels.openHeadlines() },
+            "Missatges · WhatsApp" to { openWhatsApp() }).forEach { (label, destination) ->
+            body.addView(action(label) { dialog.dismiss(); destination() }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(6) })
+        }
+        LauncherThemes.style(body)
+        dialog.show()
     }
 
     private fun settings() {
@@ -596,7 +673,7 @@ class FoldActivity : AppCompatActivity() {
     internal fun themeSettings() {
         val current = LauncherThemes.id(prefs.getString("theme", LauncherThemes.METRO))
         AlertDialog.Builder(this).setTitle("Temes de MagicFold")
-            .setSingleChoiceItems(arrayOf("Metro · paisatge meteorològic", "Terminal · MS-DOS / Linux", "Cyberpunk · Night City"), LauncherThemes.ids.indexOf(current)) { dialog, index ->
+            .setSingleChoiceItems(LauncherThemes.labels, LauncherThemes.ids.indexOf(current)) { dialog, index ->
                 prefs.edit().putString("theme", LauncherThemes.ids[index]).apply()
                 dialog.dismiss(); entrancePending = true; render()
             }
@@ -617,7 +694,7 @@ class FoldActivity : AppCompatActivity() {
         AlertDialog.Builder(this).setTitle("Perspectiva amb el giroscopi")
             .setMessage("Els panells s’inclinen quan mous el mòbil (màxim 8°), amb més desplaçament i ombra per donar profunditat. S’aturen mentre toques la pantalla, a la pàgina d’apps, sense focus, amb estalvi de bateria o amb animacions desactivades.\n\n" +
                 status + "\nSensor: " + (perspective.sensorName ?: "No disponible") +
-                "\n\nDeixa el mòbil en una posició còmoda i prem Recalibra per fixar el centre. Funciona als tres temes.")
+                "\n\nDeixa el mòbil en una posició còmoda i prem Recalibra per fixar el centre. Funciona amb tots els temes.")
             .setPositiveButton(if (enabled) "Desactiva" else "Activa") { _, _ ->
                 prefs.edit().putBoolean("perspective", !enabled).apply(); syncPerspective()
             }.setNeutralButton("Recalibra") { _, _ -> perspective.recalibrate() }
@@ -628,13 +705,17 @@ class FoldActivity : AppCompatActivity() {
             Toast.makeText(this, "S’està preparant la imatge…", Toast.LENGTH_SHORT).show(); return
         }
         val overlay = prefs.getBoolean("photoWeather", true)
+        val theme = LauncherThemes.id(prefs.getString("theme", LauncherThemes.METRO))
+        val choices = mutableListOf("Tria una imatge del mòbil", "Efectes del temps sobre la imatge: " + (if (overlay) "activats" else "desactivats"), "Torna al paisatge original", "Desenfocament de la foto: " + (if (prefs.getBoolean("photoBlur", true)) "activat" else "desactivat"))
+        if (theme in listOf(LauncherThemes.WINDOWS, LauncherThemes.DESKTOP, LauncherThemes.PIRATE)) choices += "Recupera el fons d’aquest tema"
         AlertDialog.Builder(this).setTitle("Imatge de fons")
-            .setItems(arrayOf("Tria una imatge del mòbil", "Efectes del temps sobre la imatge: " + if (overlay) "activats" else "desactivats", "Torna al paisatge original", "Desenfocament de la foto: " + if (prefs.getBoolean("photoBlur", true)) "activat" else "desactivat")) { _, item ->
+            .setItems(choices.toTypedArray()) { _, item ->
                 when (item) {
                     0 -> try { imagePicker.launch(arrayOf("image/*")) }
                         catch (_: ActivityNotFoundException) { Toast.makeText(this, "No hi ha cap selector d’imatges disponible", Toast.LENGTH_LONG).show() }
                     1 -> { prefs.edit().putBoolean("photoWeather", !overlay).apply(); renderData() }
                     3 -> { prefs.edit().putBoolean("photoBlur", !prefs.getBoolean("photoBlur", true)).apply(); renderData() }
+                    4 -> { prefs.edit().putBoolean("themePhoto_$theme", false).apply(); renderData() }
                     2 -> {
                         wallpaperJob = lifecycleScope.launch { wallpaperStore.clear(); wallpaper = null; softenedWallpaper = null; renderData() }
                     }

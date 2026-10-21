@@ -157,6 +157,8 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
         activity.lifecycleScope.launch { loadImages(news[i].orEmpty()) }
     }
 
+    fun openHeadlines() { showHeadlines(selected) }
+
     fun news(parent: LinearLayout, expanded: Boolean) {
         val card = card()
         val heading = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
