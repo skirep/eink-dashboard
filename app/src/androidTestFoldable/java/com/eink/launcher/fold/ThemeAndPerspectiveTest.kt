@@ -93,6 +93,7 @@ class ThemeAndPerspectiveTest {
         val device = UiDevice.getInstance(instrumentation)
         val selected = context.packageManager.queryIntentActivities(
             android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER), 0)
+            .filter { it.activityInfo.packageName != context.packageName }
             .map { android.content.ComponentName(it.activityInfo.packageName, it.activityInfo.name).flattenToString() }.distinct().take(7)
         assertTrue("Regression needs more than one row of launchable apps", selected.size > 4)
         try {
