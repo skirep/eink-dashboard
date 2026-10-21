@@ -92,7 +92,7 @@ class FoldActivity : AppCompatActivity() {
     private var dataRenderPending = false
     private var layoutRenderPending = false
     private var touchSequenceActive = false
-    private val perspective by lazy { PanelPerspective(this) }
+    internal val perspective by lazy { PanelPerspective(this) }
     private var resumed = false
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         refreshAgenda()
@@ -393,7 +393,9 @@ class FoldActivity : AppCompatActivity() {
         root.addView(dock)
         LauncherThemes.style(root)
         setContentView(surface)
-        perspective.bind(pager)
+        // The pager has no adapter children until its first layout. Bind the
+        // already populated home tree instead, so real panels receive sensor updates.
+        perspective.bind(homePage)
         syncPerspective()
     }
 
@@ -598,9 +600,19 @@ class FoldActivity : AppCompatActivity() {
     }
     private fun perspectiveSettings() {
         val enabled = prefs.getBoolean("perspective", true)
+        val status = when {
+            !enabled -> "Perspectiva desactivada"
+            !prefs.getBoolean("effects", true) -> "Bloquejada: Efectes visuals desactivats"
+            (getSystemService(POWER_SERVICE) as PowerManager).isPowerSaveMode -> "Bloquejada: estalvi de bateria"
+            Build.VERSION.SDK_INT >= 26 && !ValueAnimator.areAnimatorsEnabled() -> "Bloquejada: animacions d’Android desactivades"
+            !perspective.available -> "Cap sensor de rotació compatible"
+            perspective.hasReadings -> "S’han rebut lectures de moviment"
+            else -> "Encara no s’han rebut lectures de moviment"
+        }
         AlertDialog.Builder(this).setTitle("Perspectiva amb el giroscopi")
             .setMessage("Els panells s’inclinen suaument quan mous el mòbil (màxim 3,5°). S’aturen mentre toques la pantalla, a la pàgina d’apps, sense focus, amb estalvi de bateria o amb animacions desactivades.\n\n" +
-                if (perspective.available) "Deixa el mòbil en una posició còmoda i prem Recalibra per fixar el centre. Funciona als dos temes." else "Aquest dispositiu no exposa cap sensor de rotació compatible. Els panells continuen estàtics.")
+                status + "\nSensor: " + (perspective.sensorName ?: "No disponible") +
+                "\n\nDeixa el mòbil en una posició còmoda i prem Recalibra per fixar el centre. Funciona als dos temes.")
             .setPositiveButton(if (enabled) "Desactiva" else "Activa") { _, _ ->
                 prefs.edit().putBoolean("perspective", !enabled).apply(); syncPerspective()
             }.setNeutralButton("Recalibra") { _, _ -> perspective.recalibrate() }

@@ -1,4 +1,4 @@
-# MagicFold / Magic V2 — v0.10
+# MagicFold / Magic V2 — v0.11
 
 Launcher Android amb estètica Windows 10 Mobile i mosaics translúcids amb vores de llum.
 El temps de **Cabrils** transforma el fons: paisatge en capes, núvols que es desplacen,
@@ -183,3 +183,21 @@ Les proves verifiquen persistència i canvi de temes, controls principals,
 redimensionament, límits i suavitzat del moviment i transformació real dels
 píxels d’un panell. El comportament del giroscopi físic a Honor encara requereix
 validació al dispositiu.
+
+
+## Correcció de perspectiva v0.11
+
+La 0.10 associava el sensor al ViewPager abans del primer layout: encara no
+contenia les pàgines i podia registrar zero panells. Ara s’associa directament
+al contingut d’inici ja construït. Una actualització de dades conserva la
+inclinació i la calibració si la mida de finestra no ha canviat; obrir/tancar
+el plegable o canviar l’orientació continua recalibrant quan correspon.
+
+A **Temes i perspectiva → Perspectiva 3D** es mostra el sensor detectat, si
+s’han rebut lectures i si la configuració bloqueja l’efecte (efectes visuals,
+estalvi de bateria o animacions d’Android desactivades).
+
+La prova de regressió injecta vectors de rotació al mateix processament que
+utilitza el sensor i comprova que es mouen els panells reals de l’Activity,
+que es congelen durant un toc i que mantenen la inclinació en reconstruir
+la vista. No substitueix una prova del sensor físic al Honor.

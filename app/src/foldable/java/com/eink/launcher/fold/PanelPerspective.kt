@@ -23,6 +23,9 @@ internal class PanelPerspective(private val context: Context) : SensorEventListe
     private val sensor = manager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR)
         ?: manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
     val available get() = sensor != null
+    val sensorName get() = sensor?.name
+    val panelCount get() = tiles.size
+    var hasReadings = false; private set
     private val handler = Handler(Looper.getMainLooper())
     private val tiles = mutableListOf<MetroTile>()
     private val matrix = FloatArray(9)
@@ -37,6 +40,7 @@ internal class PanelPerspective(private val context: Context) : SensorEventListe
     private var active = false
     private var touching = false
     private var lastPolicyCheck = 0L
+    private var viewport: Pair<Int, Int>? = null
     private val frame = object : Runnable {
         override fun run() {
             if (!active) return
@@ -48,20 +52,26 @@ internal class PanelPerspective(private val context: Context) : SensorEventListe
                     enable(false); return
                 }
             }
-            if (!touching) {
-                filter.step(pitch, roll)
-                tiles.forEach { apply(it, filter.x, filter.y) }
-            }
+            advance()
             handler.postDelayed(this, 33)
         }
     }
     fun bind(root: View) {
+        val size = context.resources.configuration.let { it.screenWidthDp to it.screenHeightDp }
+        val reset = viewport != size || tiles.isEmpty()
+        viewport = size
         tiles.forEach { apply(it, 0f, 0f) }; tiles.clear()
         fun visit(view: View) {
             if (view is MetroTile) tiles += view
             else if (view is ViewGroup) (0 until view.childCount).forEach { visit(view.getChildAt(it)) }
         }
-        visit(root); recalibrate()
+        visit(root)
+        if (reset) recalibrate() else tiles.forEach { apply(it, filter.x, filter.y) }
+    }
+    internal fun advance() {
+        if (touching) return
+        filter.step(pitch, roll)
+        tiles.forEach { apply(it, filter.x, filter.y) }
     }
     fun touch(down: Boolean) { touching = down }
     fun recalibrate() {
@@ -77,8 +87,13 @@ internal class PanelPerspective(private val context: Context) : SensorEventListe
     override fun onSensorChanged(event: SensorEvent) {
         if (!active || touching) return
         val displayRotation = (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
+        acceptRotation(event.values, displayRotation)
+    }
+    internal fun acceptRotation(vector: FloatArray, displayRotation: Int) {
+        if (touching || vector.size < 3 || vector.take(4).any { !it.isFinite() }) return
+        hasReadings = true
         if (displayRotation != rotation) { rotation = displayRotation; calibrated = false }
-        SensorManager.getRotationMatrixFromVector(matrix, event.values)
+        SensorManager.getRotationMatrixFromVector(matrix, vector)
         val axes = when (rotation) {
             Surface.ROTATION_90 -> SensorManager.AXIS_Y to SensorManager.AXIS_MINUS_X
             Surface.ROTATION_180 -> SensorManager.AXIS_MINUS_X to SensorManager.AXIS_MINUS_Y

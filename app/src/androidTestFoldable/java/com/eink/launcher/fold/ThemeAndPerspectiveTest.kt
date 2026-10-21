@@ -20,6 +20,37 @@ class ThemeAndPerspectiveTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
 
+    @Test fun sensorReadingsMoveActualHomePanelsAndSurviveDataRebuilds() {
+        ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
+            val device = UiDevice.getInstance(instrumentation)
+            assertTrue(device.wait(Until.hasObject(By.desc("Obre rellotge i alarmes")), 10000))
+            scenario.onActivity { activity ->
+                fun panels(view: View): List<MetroTile> = if (view is MetroTile) listOf(view) else
+                    if (view is ViewGroup) (0 until view.childCount).flatMap { panels(view.getChildAt(it)) } else emptyList()
+                val controller = activity.perspective
+                // Regression: binding the unlaid-out ViewPager registered ZERO panels.
+                assertTrue("Real home panels must be bound, not an empty pager", controller.panelCount >= 4)
+                controller.recalibrate()
+                controller.acceptRotation(floatArrayOf(0f, 0f, 0f, 1f), android.view.Surface.ROTATION_0)
+                val half = Math.toRadians(12.0)
+                controller.acceptRotation(floatArrayOf(kotlin.math.sin(half).toFloat(), 0f, 0f, kotlin.math.cos(half).toFloat()), android.view.Surface.ROTATION_0)
+                repeat(40) { controller.advance() }
+                assertTrue(controller.hasReadings)
+                assertTrue("Rotation samples must tilt actual visible home panels", panels(activity.window.decorView).any { kotlin.math.abs(it.rotationX) > 1f })
+                val before = panels(activity.window.decorView).first().rotationX
+                controller.touch(true)
+                controller.acceptRotation(floatArrayOf(0f, 0f, 0f, 1f), android.view.Surface.ROTATION_0)
+                repeat(20) { controller.advance() }
+                assertEquals("Touch gestures freeze the panels", before, panels(activity.window.decorView).first().rotationX, .001f)
+                controller.touch(false)
+                activity.onConfigurationChanged(android.content.res.Configuration(activity.resources.configuration))
+                assertTrue("A data/layout rebuild must retain tilt in the same viewport", panels(activity.window.decorView).any { kotlin.math.abs(it.rotationX) > 1f })
+                controller.recalibrate()
+                assertTrue(panels(activity.window.decorView).all { it.rotationX == 0f && it.rotationY == 0f })
+            }
+        }
+    }
+
     @Test fun perspectiveIsSmoothedBoundedAndReturnsToNeutral() {
         val filter = TiltFilter()
         filter.step(90f, -90f)
