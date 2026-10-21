@@ -71,7 +71,14 @@ class ThemeAndPerspectiveTest {
                 scenario.onActivity { activity ->
                     fun textViews(view: View): List<TextView> = (if (view is TextView) listOf(view) else emptyList()) +
                         (if (view is ViewGroup) (0 until view.childCount).flatMap { textViews(view.getChildAt(it)) } else emptyList())
-                    assertTrue(textViews(activity.window.decorView).filter { it.text.toString() == "C:\\MAGICFOLD> HOME_" }.all { it.typeface == Typeface.MONOSPACE })
+                    val labels = textViews(activity.window.decorView)
+                    listOf("C:\\MAGICFOLD> HOME_", "Cabrils", "Tecnologia").forEach { label ->
+                        val matching = labels.filter { it.text.toString() == label }
+                        assertTrue("Missing visible theme content: $label", matching.isNotEmpty())
+                        assertTrue("All panel content must use monospace: $label", matching.all { it.typeface == Typeface.MONOSPACE })
+                    }
+                    val selectedChip = labels.first { it.text.toString() == "Tecnologia" }
+                    assertTrue("Selected section needs readable contrast", androidx.core.graphics.ColorUtils.calculateContrast(selectedChip.currentTextColor, 0xff050e09.toInt()) >= 4.5)
                 }
                 device.executeShellCommand("mkdir -p /sdcard/Download/fold-metro")
                 device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/terminal-compact.png")

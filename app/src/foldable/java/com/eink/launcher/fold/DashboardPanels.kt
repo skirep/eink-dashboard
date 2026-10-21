@@ -38,11 +38,12 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
     private fun column() = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
     private fun text(value: String, size: Float = 14f, color: Int = MetroStyle.text) = TextView(activity).apply {
         text = value; textSize = size; setTextColor(color); setPadding(0, dp(2), 0, dp(2))
-        typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+        typeface = if (MetroStyle.terminal) android.graphics.Typeface.MONOSPACE else android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
     }
     private fun caption(value: String) = text(value, 11f, MetroStyle.blue).apply { letterSpacing = .06f }
     private fun button(value: String, click: () -> Unit) = Button(activity).apply {
         text = value; textSize = 12f; isAllCaps = false; setTextColor(MetroStyle.text)
+        if (MetroStyle.terminal) typeface = android.graphics.Typeface.MONOSPACE
         setPadding(dp(4), 0, dp(4), 0); minimumHeight = dp(44); minHeight = dp(44)
         background = MetroStyle.surface(0xff1b324b.toInt(), 0xff14263b.toInt(), dp(7).toFloat())
         setOnClickListener { click() }

@@ -207,13 +207,14 @@ class FoldActivity : AppCompatActivity() {
     private fun dateText() = SimpleDateFormat("EEEE, d MMMM", Locale("ca")).format(Date())
     private fun text(value: String, size: Float = 16f, color: Int = MetroStyle.text) = TextView(this).apply {
         text = value; textSize = size; setTextColor(color); setPadding(0, dp(2), 0, dp(2))
-        typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+        typeface = if (MetroStyle.terminal) Typeface.MONOSPACE else Typeface.create("sans-serif-light", Typeface.NORMAL)
         setLineSpacing(dp(2).toFloat(), 1f)
     }
-    private fun caption(value: String, color: Int = MetroStyle.muted) = text(value, 11f, color).apply { letterSpacing = .1f; typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL) }
+    private fun caption(value: String, color: Int = MetroStyle.muted) = text(value, 11f, color).apply { letterSpacing = if (MetroStyle.terminal) 0f else .1f; typeface = if (MetroStyle.terminal) Typeface.MONOSPACE else Typeface.create("sans-serif-medium", Typeface.NORMAL) }
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     private fun action(label: String, click: () -> Unit) = Button(this).apply {
         text = label; isAllCaps = false; textSize = 14f; minHeight = dp(48); minimumWidth = 0
+        if (MetroStyle.terminal) typeface = Typeface.MONOSPACE
         setTextColor(MetroStyle.text); setPadding(dp(12), dp(6), dp(12), dp(6))
         background = MetroStyle.surface(0xff1d2b45.toInt(), 0xff142139.toInt(), dp(3).toFloat())
         setOnClickListener { click() }
@@ -340,6 +341,10 @@ class FoldActivity : AppCompatActivity() {
             block(right, homePrompt!!)
             addPanels(homePage, left, right, wide)
         }
+        // ViewPager attaches adapter pages only during layout. Theme their full
+        // trees now, while they are still detached from the Activity root.
+        LauncherThemes.style(homePage)
+        LauncherThemes.style(appsPage)
         val selectedPage = if (appDrawer) 1 else 0
         val pager = LauncherPager(this).apply {
             layoutDirection = View.LAYOUT_DIRECTION_LTR
