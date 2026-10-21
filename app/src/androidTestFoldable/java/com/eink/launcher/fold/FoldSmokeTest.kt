@@ -166,7 +166,7 @@ class FoldSmokeTest {
                 captureTouches()
                 swipePage(false)
                 swipePage(true)
-                assertTrue(device.hasObject(By.text(query)))
+                assertTrue(device.wait(Until.hasObject(By.text(query)), 10000))
                 assertTrue(device.hasObject(By.desc("Trucades")))
                 assertTrue(device.hasObject(By.desc("WhatsApp")))
                 // Activity survives actual viewport changes and process-style recreation.

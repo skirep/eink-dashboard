@@ -83,9 +83,10 @@ class CalendarAndWeatherTest {
             prefs.edit().putStringSet("selectedCalendars", setOf(google.toString(), outlook.toString())).commit()
             ActivityScenario.launch(FoldActivity::class.java).use {
                 assertTrue(device.wait(Until.hasObject(By.text("Reunió de prova Google")), 15000))
-                assertTrue(device.wait(Until.hasObject(By.text("Reunió de prova Outlook")), 15000))
+                val outlookVisible = device.wait(Until.hasObject(By.text("Reunió de prova Outlook")), 15000)
                 device.executeShellCommand("mkdir -p /sdcard/Download/fold-metro")
                 device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/agenda-test-fixtures.png")
+                assertTrue("Outlook event must be visible; see agenda-test-fixtures.png", outlookVisible)
                 assertTrue(device.findObject(UiSelector().description("Configura calendaris")).waitForExists(10000))
                 device.findObject(UiSelector().description("Configura calendaris")).click()
                 assertTrue(device.wait(Until.hasObject(By.text("Google + Outlook")), 10000))

@@ -282,14 +282,17 @@ class FoldActivity : AppCompatActivity() {
             if (MetroStyle.desktop) { tag = "desktop-surface"; background = MetroStyle.surface(0xffedf1fa.toInt(), 0xffdce5f5.toInt(), dp(14).toFloat()); setPadding(dp(12), dp(8), dp(12), dp(8)) }
         }
         val title = column()
-        title.addView(text(when {
+        val brand = when {
             MetroStyle.terminal -> "C:\\MAGICFOLD> HOME_"
             MetroStyle.cyberpunk -> "MAGICFOLD // NIGHT CITY"
             MetroStyle.windows -> "Inici"
             MetroStyle.desktop -> "MagicFold · Escriptori"
             MetroStyle.pirate -> "El quadern del capità"
             else -> "MagicFold     ·     Magic V2"
-        }, if (MetroStyle.windows) 30f else if (MetroStyle.pirate) 17f else 11f, MetroStyle.mint))
+        }
+        title.addView(if (MetroStyle.windows || MetroStyle.desktop || MetroStyle.pirate)
+            text(brand, if (MetroStyle.windows) 30f else if (MetroStyle.pirate) 17f else 11f, MetroStyle.mint)
+            else caption(brand, MetroStyle.mint))
         val hourLine = LinearLayout(this).apply { gravity = Gravity.BOTTOM }
         headerClock = text(clockText(), if (MetroStyle.windows || MetroStyle.desktop) 28f else if (MetroStyle.pirate) 36f else if (width < 420) 40f else 50f).apply {
             contentDescription = "Obre rellotge i alarmes"; isFocusable = true; setOnClickListener { openClock() }
@@ -415,7 +418,8 @@ class FoldActivity : AppCompatActivity() {
         root.addView(pager, LinearLayout.LayoutParams(-1, 0, 1f))
         val dock = LinearLayout(this).apply {
             gravity = Gravity.CENTER
-            setPadding(dp(5), dp(8), dp(5), dp(4))
+            if (MetroStyle.desktop || MetroStyle.pirate) setPadding(dp(5), dp(8), dp(5), dp(4))
+            else setPadding(0, dp(8), 0, 0)
             if (MetroStyle.desktop) { tag = "desktop-surface"; background = MetroStyle.surface(0xeef0f4ff.toInt(), 0xdde0e6f4.toInt(), dp(22).toFloat()) }
             if (MetroStyle.pirate) background = PirateFrame()
         }

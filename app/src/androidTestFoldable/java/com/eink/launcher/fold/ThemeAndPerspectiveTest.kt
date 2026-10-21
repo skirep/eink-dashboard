@@ -225,7 +225,8 @@ class ThemeAndPerspectiveTest {
                     assertTrue(device.wait(Until.hasObject(By.text("Port · Temps de Cabrils")), 5000))
                     device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/pirate-map.png")
                     device.findObject(By.text("Port · Temps de Cabrils")).click()
-                    assertTrue(device.wait(Until.hasObject(By.text("Actualitza")), 5000))
+                    assertTrue("Port must open the actual weather dialog", device.wait(Until.hasObject(By.res("android:id/button1")), 5000))
+                    assertTrue(device.findObject(By.res("android:id/button1")).text.equals("Actualitza", ignoreCase = true))
                     device.pressBack()
                 }
                 scenario.onActivity { it.themeSettings() }
