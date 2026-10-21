@@ -211,7 +211,7 @@ class FoldActivity : AppCompatActivity() {
         setLineSpacing(dp(2).toFloat(), 1f)
     }
     private fun caption(value: String, color: Int = MetroStyle.muted) = text(value, 11f, color).apply { letterSpacing = if (MetroStyle.terminal) 0f else .1f; typeface = if (MetroStyle.terminal) Typeface.MONOSPACE else Typeface.create("sans-serif-medium", Typeface.NORMAL) }
-    private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false }
+    private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     private fun action(label: String, click: () -> Unit) = Button(this).apply {
         text = label; isAllCaps = false; textSize = 14f; minHeight = dp(48); minimumWidth = 0
         if (MetroStyle.terminal) typeface = Typeface.MONOSPACE
@@ -321,7 +321,7 @@ class FoldActivity : AppCompatActivity() {
         appsPage.addView(caption("TOTES LES APLICACIONS", MetroStyle.mint))
         renderDrawer(appsPage)
         run {
-            val left = column(); val right = column()
+            val left = column().apply { clipChildren = false }; val right = column().apply { clipChildren = false }
             addWeather(left, wide, animate)
             if (wide) {
                 addAgenda(left, 3, animate)
@@ -331,7 +331,7 @@ class FoldActivity : AppCompatActivity() {
                 panels.news(right, true)
             } else {
                 val overview = LinearLayout(this).apply { clipChildren = false }
-                val agendaColumn = column(); val mailColumn = column()
+                val agendaColumn = column().apply { clipChildren = false }; val mailColumn = column().apply { clipChildren = false }
                 addAgenda(agendaColumn, 1, animate); panels.mail(mailColumn, false)
                 overview.addView(agendaColumn, LinearLayout.LayoutParams(0, -2, 1.45f).apply { rightMargin = dp(8) })
                 overview.addView(mailColumn, LinearLayout.LayoutParams(0, -2, 1f))
@@ -390,7 +390,7 @@ class FoldActivity : AppCompatActivity() {
                 background = MetroStyle.surface(0xdd152c44.toInt(), 0xdd0e2034.toInt(), dp(9).toFloat())
                 contentDescription = item.label; setOnClickListener { item.click() }
                 if (item.label == "Agenda") setOnLongClickListener { calendarPicker(); true }
-                addView(ImageView(this@FoldActivity).apply { setImageResource(item.icon); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(29), dp(29)))
+                addView(ImageView(this@FoldActivity).apply { tag = "theme-icon"; setImageResource(item.icon); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(29), dp(29)))
                 addView(text(item.label, 12f).apply { gravity = Gravity.CENTER })
             }
             dock.addView(control, LinearLayout.LayoutParams(0, dp(68), 1f).apply { if (index < 2) rightMargin = dp(7) })

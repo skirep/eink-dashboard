@@ -132,12 +132,16 @@ class ThemeAndPerspectiveTest {
                 assertTrue(device.wait(Until.hasObject(By.text("MAGICFOLD // NIGHT CITY")), 10000))
                 scenario.recreate()
                 assertTrue(device.wait(Until.hasObject(By.text("MAGICFOLD // NIGHT CITY")), 10000))
+                assertFalse("The adjacent apps page must not bleed into Home", device.hasObject(By.clazz("android.widget.EditText")))
                 assertEquals(LauncherThemes.CYBERPUNK, prefs.getString("theme", null))
                 scenario.onActivity { activity ->
                     val tile = panels(activity.window.decorView).first()
                     assertTrue(tile.elevation >= 8 * tile.resources.displayMetrics.density)
                     assertTrue(androidx.core.graphics.ColorUtils.calculateContrast(MetroStyle.text, 0xff27143f.toInt()) > 7)
                     assertTrue(androidx.core.graphics.ColorUtils.calculateContrast(MetroStyle.blue, 0xff0b1830.toInt()) > 4.5)
+                    val icon = android.widget.ImageView(activity).apply { setImageResource(android.R.drawable.sym_def_app_icon) }
+                    LauncherThemes.style(icon)
+                    assertNull("App icons must keep their original artwork", icon.colorFilter)
                 }
                 device.executeShellCommand("mkdir -p /sdcard/Download/fold-metro")
                 device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/cyberpunk-compact.png")

@@ -24,7 +24,9 @@ internal object LauncherThemes {
             view.setTextColor(if (view is Button && view.isSelected) MetroStyle.blue else MetroStyle.text)
             if (view is EditText) view.setHintTextColor(MetroStyle.muted)
         }
-        if (view is ImageView) view.setColorFilter(MetroStyle.mint, PorterDuff.Mode.SRC_IN)
+        // Keep actual app icons and news/photos recognizable in Cyberpunk.
+        if (view is ImageView && (MetroStyle.terminal || view.tag == "theme-icon"))
+            view.setColorFilter(MetroStyle.mint, PorterDuff.Mode.SRC_IN)
         if (view is ViewGroup) (0 until view.childCount).forEach { style(view.getChildAt(it)) }
     }
 }
