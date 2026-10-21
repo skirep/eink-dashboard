@@ -36,7 +36,7 @@ class ThemeAndPerspectiveTest {
                 controller.acceptRotation(floatArrayOf(kotlin.math.sin(half).toFloat(), 0f, 0f, kotlin.math.cos(half).toFloat()), android.view.Surface.ROTATION_0)
                 repeat(40) { controller.advance() }
                 assertTrue(controller.hasReadings)
-                assertTrue("Rotation samples must tilt actual visible home panels", panels(activity.window.decorView).any { kotlin.math.abs(it.rotationX) > 1f })
+                assertTrue("Rotation samples must produce visibly stronger tilt", panels(activity.window.decorView).any { kotlin.math.abs(it.rotationX) > 7f })
                 val before = panels(activity.window.decorView).first().rotationX
                 controller.touch(true)
                 controller.acceptRotation(floatArrayOf(0f, 0f, 0f, 1f), android.view.Surface.ROTATION_0)
@@ -59,12 +59,14 @@ class ThemeAndPerspectiveTest {
     @Test fun perspectiveIsSmoothedBoundedAndReturnsToNeutral() {
         val filter = TiltFilter()
         filter.step(90f, -90f)
-        assertTrue(filter.x < 0 && filter.x > -3.5f)
+        assertTrue(filter.x < 0 && filter.x > -8f)
         repeat(100) { filter.step(90f, -90f) }
-        assertEquals(-3.5f, filter.x, .01f); assertEquals(-3.5f, filter.y, .01f)
+        assertEquals(-8f, filter.x, .01f); assertEquals(-8f, filter.y, .01f)
         repeat(100) { filter.step(0f, 0f) }
         assertEquals(0f, filter.x, .01f); assertEquals(0f, filter.y, .01f)
         filter.reset(); assertEquals(0f, filter.x, 0f)
+        repeat(100) { filter.step(10f, 10f) }
+        assertEquals(-4f, filter.x, .01f); assertEquals(4f, filter.y, .01f)
     }
 
     @Test fun perspectiveActuallyTransformsPanelPixels() {
@@ -81,6 +83,78 @@ class ThemeAndPerspectiveTest {
             PanelPerspective.apply(tile, 0f, 0f)
             assertEquals(0f, tile.rotationX, 0f); assertEquals(0f, tile.rotationY, 0f)
             flat.recycle(); tilted.recycle()
+        }
+    }
+
+
+    @Test fun allPinnedAppsGetRowsInCompactAndExpandedLayouts() {
+        val prefs = context.getSharedPreferences("fold-metro", android.content.Context.MODE_PRIVATE)
+        val original = prefs.getString("pins", null)
+        val device = UiDevice.getInstance(instrumentation)
+        val selected = context.packageManager.queryIntentActivities(
+            android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER), 0)
+            .map { android.content.ComponentName(it.activityInfo.packageName, it.activityInfo.name).flattenToString() }.distinct().take(7)
+        assertTrue("Regression needs more than one row of launchable apps", selected.size > 4)
+        try {
+            prefs.edit().putString("pins", org.json.JSONArray(selected).toString()).commit()
+            for (size in listOf("1080x1920", "1920x1920")) {
+                device.executeShellCommand("wm size $size"); device.executeShellCommand("wm density 420")
+                ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
+                    assertTrue(device.wait(Until.hasObject(By.desc("Obre rellotge i alarmes")), 10000))
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        val favorites = panels(activity.window.decorView).filter { it.tag?.toString()?.startsWith("favorite:") == true }
+                        assertEquals("Every selected app needs a tile", selected.size, favorites.size)
+                        assertEquals(selected.toSet(), favorites.map { it.tag.toString().removePrefix("favorite:") }.toSet())
+                        assertTrue("Favorites must span multiple rows", favorites.map { it.parent }.distinct().size > 1)
+                        assertTrue("Tiles must be laid out with visible shadows", favorites.all { it.width > 0 && it.height > 0 && it.elevation >= 8 * it.resources.displayMetrics.density })
+                    }
+                }
+            }
+        } finally {
+            prefs.edit().apply { if (original == null) remove("pins") else putString("pins", original) }.commit()
+            device.executeShellCommand("wm size reset"); device.executeShellCommand("wm density reset")
+        }
+    }
+
+    @Test fun cyberpunkThemePersistsAcrossResizeAndKeepsNavigation() {
+        val prefs = context.getSharedPreferences("fold-metro", android.content.Context.MODE_PRIVATE)
+        val original = prefs.getString("theme", null)
+        val device = UiDevice.getInstance(instrumentation)
+        try {
+            prefs.edit().putString("theme", LauncherThemes.METRO).commit()
+            device.executeShellCommand("wm size 1080x1920"); device.executeShellCommand("wm density 420")
+            ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
+                assertTrue(device.wait(Until.hasObject(By.desc("Configuració")), 10000))
+                scenario.onActivity { it.themeSettings() }
+                device.findObject(By.text("Cyberpunk · Night City")).click()
+                assertTrue(device.wait(Until.hasObject(By.text("MAGICFOLD // NIGHT CITY")), 10000))
+                scenario.recreate()
+                assertTrue(device.wait(Until.hasObject(By.text("MAGICFOLD // NIGHT CITY")), 10000))
+                assertEquals(LauncherThemes.CYBERPUNK, prefs.getString("theme", null))
+                scenario.onActivity { activity ->
+                    val tile = panels(activity.window.decorView).first()
+                    assertTrue(tile.elevation >= 8 * tile.resources.displayMetrics.density)
+                    assertTrue(androidx.core.graphics.ColorUtils.calculateContrast(MetroStyle.text, 0xff27143f.toInt()) > 7)
+                    assertTrue(androidx.core.graphics.ColorUtils.calculateContrast(MetroStyle.blue, 0xff0b1830.toInt()) > 4.5)
+                }
+                device.executeShellCommand("mkdir -p /sdcard/Download/fold-metro")
+                device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/cyberpunk-compact.png")
+                device.executeShellCommand("wm size 1920x1920")
+                assertTrue(device.wait(Until.hasObject(By.textContains("Vista ampla")), 10000))
+                device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/cyberpunk-expanded.png")
+                assertTrue(device.hasObject(By.desc("Trucades"))); assertTrue(device.hasObject(By.desc("WhatsApp")))
+                device.findObject(By.desc("Pàgina aplicacions")).click()
+                assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 10000))
+                device.pressBack()
+                scenario.onActivity { it.themeSettings() }
+                device.findObject(By.text("Metro · paisatge meteorològic")).click()
+                assertTrue(device.wait(Until.hasObject(By.text("MagicFold     ·     Magic V2")), 10000))
+            }
+        } finally {
+            prefs.edit().apply { if (original == null) remove("theme") else putString("theme", original) }.commit()
+            LauncherThemes.select(original)
+            device.executeShellCommand("wm size reset"); device.executeShellCommand("wm density reset")
         }
     }
 
@@ -131,7 +205,7 @@ class ThemeAndPerspectiveTest {
             }
         } finally {
             prefs.edit().apply { if (original == null) remove("theme") else putString("theme", original) }.commit()
-            MetroStyle.terminal = LauncherThemes.id(original) == LauncherThemes.TERMINAL
+            LauncherThemes.select(original)
             device.executeShellCommand("wm size reset"); device.executeShellCommand("wm density reset")
         }
     }

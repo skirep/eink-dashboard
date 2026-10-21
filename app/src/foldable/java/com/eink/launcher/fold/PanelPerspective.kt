@@ -10,8 +10,8 @@ internal class TiltFilter {
     var x = 0f; private set
     var y = 0f; private set
     fun step(pitch: Float, roll: Float) {
-        val targetX = (-pitch * .18f).coerceIn(-3.5f, 3.5f)
-        val targetY = (roll * .18f).coerceIn(-3.5f, 3.5f)
+        val targetX = (-pitch * .4f).coerceIn(-8f, 8f)
+        val targetY = (roll * .4f).coerceIn(-8f, 8f)
         x += (targetX - x) * .14f; y += (targetY - y) * .14f
     }
     fun reset() { x = 0f; y = 0f }
@@ -111,11 +111,11 @@ internal class PanelPerspective(private val context: Context) : SensorEventListe
     companion object {
         fun apply(view: View, x: Float, y: Float) {
             val density = view.resources.displayMetrics.density
-            view.cameraDistance = 8000 * density
-            view.rotationX = x.coerceIn(-3.5f, 3.5f)
-            view.rotationY = y.coerceIn(-3.5f, 3.5f)
-            view.translationX = y.coerceIn(-3.5f, 3.5f) * density * .6f
-            view.translationY = -x.coerceIn(-3.5f, 3.5f) * density * .6f
+            view.cameraDistance = 6000 * density
+            view.rotationX = x.coerceIn(-8f, 8f)
+            view.rotationY = y.coerceIn(-8f, 8f)
+            view.translationX = y.coerceIn(-8f, 8f) * density
+            view.translationY = -x.coerceIn(-8f, 8f) * density
         }
     }
 }

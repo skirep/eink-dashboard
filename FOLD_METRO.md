@@ -1,4 +1,4 @@
-# MagicFold / Magic V2 — v0.11
+# MagicFold / Magic V2 — v0.12
 
 Launcher Android amb estètica Windows 10 Mobile i mosaics translúcids amb vores de llum.
 El temps de **Cabrils** transforma el fons: paisatge en capes, núvols que es desplacen,
@@ -160,9 +160,9 @@ cap rellotge accessible, es mostra un avís i MagicFold continua obert.
 La correcció es valida en emulador; encara cal provar-la al Magic V2 físic.
 
 
-## Temes i perspectiva v0.10
+## Temes i perspectiva v0.12
 
-**Configuració → Temes i perspectiva** ofereix Metro i Terminal (MS-DOS / Linux).
+**Configuració → Temes i perspectiva** ofereix Metro, Terminal (MS-DOS / Linux) i Cyberpunk · Night City.
 Terminal fa servir text monoespaiat, fons CRT estàtic, finestres rectangulars
 verdes, símbols meteorològics de text i accents ambre. No és un intèrpret de
 comandes. Les mateixes dades i accions continuen disponibles. Les fotos i el
@@ -170,8 +170,8 @@ paisatge es recuperen en tornar a Metro; no s’esborra el fons importat.
 Les miniatures de notícies s’oculten al tema Terminal.
 
 **Perspectiva 3D** permet activar/desactivar el moviment i recalibrar el centre.
-Un sensor de rotació amb fusió giroscòpica inclina els panells fins a 3,5 graus,
-amb suavitzat i translació mínima. S’adapta a la rotació de la pantalla i es
+Un sensor de rotació amb fusió giroscòpica inclina els panells fins a 8 graus,
+amb suavitzat i translació de fins a 8 dp per eix. S’adapta a la rotació de la pantalla i es
 recalibra en reconstruir la vista després d’obrir/tancar el plegable. No mou
 la barra de Trucades/WhatsApp/Agenda ni el rellotge, i es congela durant els
 gestos tàctils. S’atura a la pàgina d’apps, en perdre el focus o pausar el
@@ -201,3 +201,22 @@ La prova de regressió injecta vectors de rotació al mateix processament que
 utilitza el sensor i comprova que es mouen els panells reals de l’Activity,
 que es congelen durant un toc i que mantenen la inclinació en reconstruir
 la vista. No substitueix una prova del sensor físic al Honor.
+
+
+## Profunditat, apps fixades i Cyberpunk v0.12
+
+El moviment té més del doble de sensibilitat: 10° de moviment del mòbil
+produeixen 4° d’inclinació, amb un límit de 8°. Les ombres natives de 10 dp
+i l’espai al voltant dels panells reforcen la profunditat sense moure el dock.
+
+**A MÀ** mostra totes les apps seleccionades, en tantes files com calgui.
+S’ha eliminat el límit intern de quatre apps. La columna es desplaça verticalment
+si la llista supera la pantalla; mantén premuda una app a la pàgina d’aplicacions
+per afegir-la o un mosaic fixat per treure’l.
+
+**Cyberpunk · Night City** afegeix superfícies violeta fosc, accents cian i magenta,
+tipografia monoespaiada i una ciutat/reixeta neó estàtica sobre el paisatge
+meteorològic o la foto triada. Conserva el temps i els efectes configurats.
+Les proves cobreixen la selecció i persistència del tema, canvi de mida,
+contrast, dock i accés a totes les apps; també verifiquen més d’una fila
+d’apps fixades en vista compacta i ampla i la nova resposta del moviment.

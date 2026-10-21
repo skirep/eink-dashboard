@@ -211,7 +211,7 @@ class FoldActivity : AppCompatActivity() {
         setLineSpacing(dp(2).toFloat(), 1f)
     }
     private fun caption(value: String, color: Int = MetroStyle.muted) = text(value, 11f, color).apply { letterSpacing = if (MetroStyle.terminal) 0f else .1f; typeface = if (MetroStyle.terminal) Typeface.MONOSPACE else Typeface.create("sans-serif-medium", Typeface.NORMAL) }
-    private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+    private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false }
     private fun action(label: String, click: () -> Unit) = Button(this).apply {
         text = label; isAllCaps = false; textSize = 14f; minHeight = dp(48); minimumWidth = 0
         if (MetroStyle.terminal) typeface = Typeface.MONOSPACE
@@ -253,7 +253,7 @@ class FoldActivity : AppCompatActivity() {
         }
         layoutRenderPending = false
         dataRenderPending = false
-        MetroStyle.terminal = LauncherThemes.id(prefs.getString("theme", LauncherThemes.METRO)) == LauncherThemes.TERMINAL
+        LauncherThemes.select(prefs.getString("theme", LauncherThemes.METRO))
         saveScroll(); homeScroll = null; rightScroll = null; drawerScroll = null
         val width = resources.configuration.screenWidthDp
         val wide = FoldPolicy.expanded(width, hinge != null)
@@ -266,11 +266,16 @@ class FoldActivity : AppCompatActivity() {
         val surface: FrameLayout = if (MetroStyle.terminal) TerminalScene(this) else WeatherScene(this, sky?.optInt("weather_code", -1) ?: -1,
             sky?.optInt("is_day", 1) == 0, prefs.getBoolean("effects", true), animate,
             if (prefs.getBoolean("photoBlur", true)) softenedWallpaper ?: wallpaper else wallpaper, prefs.getBoolean("photoWeather", true))
+        if (MetroStyle.cyberpunk) surface.addView(CyberpunkOverlay(this), FrameLayout.LayoutParams(-1, -1))
         val root = column().apply { setPadding(dp(20), dp(12), dp(20), dp(8)); fitsSystemWindows = true }
         surface.addView(root, FrameLayout.LayoutParams(-1, -1))
         val heading = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val title = column()
-        title.addView(caption(if (MetroStyle.terminal) "C:\\MAGICFOLD> HOME_" else "MagicFold     ·     Magic V2", MetroStyle.mint))
+        title.addView(caption(when {
+            MetroStyle.terminal -> "C:\\MAGICFOLD> HOME_"
+            MetroStyle.cyberpunk -> "MAGICFOLD // NIGHT CITY"
+            else -> "MagicFold     ·     Magic V2"
+        }, MetroStyle.mint))
         val hourLine = LinearLayout(this).apply { gravity = Gravity.BOTTOM }
         headerClock = text(clockText(), if (width < 420) 40f else 50f).apply {
             contentDescription = "Obre rellotge i alarmes"; isFocusable = true; setOnClickListener { openClock() }
@@ -325,7 +330,7 @@ class FoldActivity : AppCompatActivity() {
                 panels.mail(right, true)
                 panels.news(right, true)
             } else {
-                val overview = LinearLayout(this)
+                val overview = LinearLayout(this).apply { clipChildren = false }
                 val agendaColumn = column(); val mailColumn = column()
                 addAgenda(agendaColumn, 1, animate); panels.mail(mailColumn, false)
                 overview.addView(agendaColumn, LinearLayout.LayoutParams(0, -2, 1.45f).apply { rightMargin = dp(8) })
@@ -400,12 +405,12 @@ class FoldActivity : AppCompatActivity() {
     }
 
     private fun addPanels(root: LinearLayout, left: LinearLayout, right: LinearLayout, wide: Boolean) {
-        val body = LinearLayout(this)
+        val body = LinearLayout(this).apply { clipChildren = false; clipToPadding = false }
         val horizontal = hinge?.orientation == FoldingFeature.Orientation.HORIZONTAL
         body.orientation = if (wide && !horizontal) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
         if (wide) {
-            val first = ScrollView(this).apply { addView(left); isFillViewport = true; isVerticalScrollBarEnabled = false }
-            val second = ScrollView(this).apply { addView(right); isFillViewport = true; isVerticalScrollBarEnabled = false }
+            val first = ScrollView(this).apply { setPadding(dp(8), dp(8), dp(8), dp(12)); clipToPadding = false; addView(left); isFillViewport = true; isVerticalScrollBarEnabled = false }
+            val second = ScrollView(this).apply { setPadding(dp(8), dp(8), dp(8), dp(12)); clipToPadding = false; addView(right); isFillViewport = true; isVerticalScrollBarEnabled = false }
             homeScroll = first; rightScroll = second
             val gap = View(this)
             if (horizontal) {
@@ -426,13 +431,13 @@ class FoldActivity : AppCompatActivity() {
             first.post { first.scrollTo(0, homeY) }; second.post { second.scrollTo(0, rightY) }
         } else {
             body.addView(left); body.addView(right)
-            val scroll = ScrollView(this).apply { addView(body); isVerticalScrollBarEnabled = false }
+            val scroll = ScrollView(this).apply { setPadding(dp(8), dp(8), dp(8), dp(12)); clipToPadding = false; addView(body); isVerticalScrollBarEnabled = false }
             homeScroll = scroll; root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f)); scroll.post { scroll.scrollTo(0, homeY) }
         }
     }
 
     private fun addWeather(parent: LinearLayout, wide: Boolean, animate: Boolean) {
-        val line = LinearLayout(this)
+        val line = LinearLayout(this).apply { clipChildren = false; clipToPadding = false }
         listOf(WeatherLocations.cabrils, weatherStore.extra()).forEachIndexed { i, location ->
             val snapshot = location?.let { weatherStore.snapshot(it.id) }
             val current = snapshot?.data?.optJSONObject("current")
@@ -530,14 +535,14 @@ class FoldActivity : AppCompatActivity() {
     private fun pin(id: String) { val list = pins().toMutableList(); if (!list.remove(id)) list.add(0, id); prefs.edit().putString("pins", org.json.JSONArray(list).toString()).apply(); render() }
     private fun launch(info: ResolveInfo) { open(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(ComponentName(info.activityInfo.packageName, info.activityInfo.name)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     private fun addFavorites(parent: LinearLayout, columns: Int, animate: Boolean) {
-        val all = apps(); val favorites = pins().mapNotNull { id -> all.find { key(it) == id } }.take(4)
+        val all = apps(); val favorites = pins().distinct().mapNotNull { id -> all.find { key(it) == id } }
         if (favorites.isEmpty()) { block(parent, text("Mantén premuda una app de la llista per fixar-la aquí.", 15f, MetroStyle.muted)); return }
         val colors = listOf(0xff275992.toInt() to 0xff172a50.toInt(), 0xff4b417d.toInt() to 0xff262342.toInt(), 0xff23696b.toInt() to 0xff153b46.toInt(), 0xff765441.toInt() to 0xff3f2934.toInt())
         favorites.chunked(columns).forEachIndexed { rowIndex, row ->
-            val line = LinearLayout(this)
+            val line = LinearLayout(this).apply { clipChildren = false; clipToPadding = false }
             row.forEachIndexed { i, app ->
                 val index = rowIndex * columns + i; val color = colors[index % colors.size]
-                val item = tile(color.first, color.second, 9).apply { minimumHeight = dp(78) }
+                val item = tile(color.first, color.second, 9).apply { minimumHeight = dp(78); tag = "favorite:" + key(app) }
                 item.addView(ImageView(this).apply { setImageDrawable(app.loadIcon(packageManager)); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(36), dp(36)))
                 item.addView(text(app.loadLabel(packageManager).toString(), 12f).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
                 item.setOnClickListener { launch(app) }; item.setOnLongClickListener { pin(key(app)); true }
@@ -591,8 +596,8 @@ class FoldActivity : AppCompatActivity() {
     internal fun themeSettings() {
         val current = LauncherThemes.id(prefs.getString("theme", LauncherThemes.METRO))
         AlertDialog.Builder(this).setTitle("Temes de MagicFold")
-            .setSingleChoiceItems(arrayOf("Metro · paisatge meteorològic", "Terminal · MS-DOS / Linux"), if (current == LauncherThemes.TERMINAL) 1 else 0) { dialog, index ->
-                prefs.edit().putString("theme", if (index == 1) LauncherThemes.TERMINAL else LauncherThemes.METRO).apply()
+            .setSingleChoiceItems(arrayOf("Metro · paisatge meteorològic", "Terminal · MS-DOS / Linux", "Cyberpunk · Night City"), LauncherThemes.ids.indexOf(current)) { dialog, index ->
+                prefs.edit().putString("theme", LauncherThemes.ids[index]).apply()
                 dialog.dismiss(); entrancePending = true; render()
             }
             .setPositiveButton("Perspectiva 3D") { _, _ -> perspectiveSettings() }
@@ -610,9 +615,9 @@ class FoldActivity : AppCompatActivity() {
             else -> "Encara no s’han rebut lectures de moviment"
         }
         AlertDialog.Builder(this).setTitle("Perspectiva amb el giroscopi")
-            .setMessage("Els panells s’inclinen suaument quan mous el mòbil (màxim 3,5°). S’aturen mentre toques la pantalla, a la pàgina d’apps, sense focus, amb estalvi de bateria o amb animacions desactivades.\n\n" +
+            .setMessage("Els panells s’inclinen quan mous el mòbil (màxim 8°), amb més desplaçament i ombra per donar profunditat. S’aturen mentre toques la pantalla, a la pàgina d’apps, sense focus, amb estalvi de bateria o amb animacions desactivades.\n\n" +
                 status + "\nSensor: " + (perspective.sensorName ?: "No disponible") +
-                "\n\nDeixa el mòbil en una posició còmoda i prem Recalibra per fixar el centre. Funciona als dos temes.")
+                "\n\nDeixa el mòbil en una posició còmoda i prem Recalibra per fixar el centre. Funciona als tres temes.")
             .setPositiveButton(if (enabled) "Desactiva" else "Activa") { _, _ ->
                 prefs.edit().putBoolean("perspective", !enabled).apply(); syncPerspective()
             }.setNeutralButton("Recalibra") { _, _ -> perspective.recalibrate() }

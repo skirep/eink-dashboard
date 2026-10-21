@@ -6,22 +6,26 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.content.res.ColorStateList
 import android.view.View
+import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import kotlin.math.*
 
 internal object MetroStyle {
     var terminal = false
-    val background get() = if (terminal) 0xff030905.toInt() else 0xff080b14.toInt()
+    var cyberpunk = false
+    val background get() = if (terminal) 0xff030905.toInt() else if (cyberpunk) 0xff090616.toInt() else 0xff080b14.toInt()
     val text get() = if (terminal) 0xffb7ffc4.toInt() else 0xfff5f7ff.toInt()
-    val muted get() = if (terminal) 0xff80b88c.toInt() else 0xffa9b6d0.toInt()
-    val mint get() = if (terminal) 0xff75f59b.toInt() else 0xff8af5dc.toInt()
-    val blue get() = if (terminal) 0xffefc778.toInt() else 0xff9cbeff.toInt()
+    val muted get() = if (terminal) 0xff80b88c.toInt() else if (cyberpunk) 0xffb8b2d6.toInt() else 0xffa9b6d0.toInt()
+    val mint get() = if (terminal) 0xff75f59b.toInt() else if (cyberpunk) 0xff65f7ff.toInt() else 0xff8af5dc.toInt()
+    val blue get() = if (terminal) 0xffefc778.toInt() else if (cyberpunk) 0xffff9ce3.toInt() else 0xff9cbeff.toInt()
     fun surface(start: Int, end: Int, radius: Float = 0f) = GradientDrawable(
         GradientDrawable.Orientation.TL_BR,
-        if (terminal && start != -1) intArrayOf(0xf20a170e.toInt(), 0xf2050e09.toInt()) else intArrayOf(start, end)
+        if (terminal && start != -1) intArrayOf(0xf20a170e.toInt(), 0xf2050e09.toInt())
+        else if (cyberpunk && start != -1) intArrayOf(0xf227143f.toInt(), 0xf00b1830.toInt()) else intArrayOf(start, end)
     ).apply { cornerRadius = if (terminal) 0f else radius
-        if (terminal && start != -1) setStroke(1, 0xff3b8052.toInt()) }
+        if (terminal && start != -1) setStroke(1, 0xff3b8052.toInt())
+        else if (cyberpunk && start != -1) setStroke(2, 0xff6669b8.toInt()) }
 }
 
 internal class MetroTile(context: Context, start: Int, end: Int) : LinearLayout(context) {
@@ -31,10 +35,20 @@ internal class MetroTile(context: Context, start: Int, end: Int) : LinearLayout(
         background = MetroStyle.surface(
             (start and 0x00ffffff) or 0x99000000.toInt(),
             (end and 0x00ffffff) or 0xd9000000.toInt(), density * 7f
-        ).apply { setStroke((density * .7f).roundToInt().coerceAtLeast(1), if (MetroStyle.terminal) MetroStyle.mint else 0x3cdbedff) }
+        ).apply { setStroke((density * .7f).roundToInt().coerceAtLeast(1), if (MetroStyle.terminal || MetroStyle.cyberpunk) MetroStyle.mint else 0x3cdbedff) }
         foreground = RippleDrawable(ColorStateList.valueOf(0x22ffffff), null,
             MetroStyle.surface(-1, -1, density * 7f))
-        elevation = 2 * density
+        elevation = 10 * density
+        outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, if (MetroStyle.terminal) 0f else density * 7f)
+                outline.alpha = 1f
+            }
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            outlineAmbientShadowColor = 0xff000000.toInt()
+            outlineSpotShadowColor = 0xff000000.toInt()
+        }
         clipToOutline = true
     }
 }
