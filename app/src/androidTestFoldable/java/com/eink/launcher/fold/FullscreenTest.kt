@@ -27,17 +27,19 @@ class FullscreenTest {
                     assertTrue("Both system bars must change actual visibility", device.wait(Until.hasObject(By.desc("Configuració")), 10000))
                     val deadline = System.currentTimeMillis() + 5000
                     var matches = false
+                    var lastState = "no insets"
                     while (!matches && System.currentTimeMillis() < deadline) {
                         instrumentation.waitForIdleSync()
                         scenario.onActivity {
                             val insets = ViewCompat.getRootWindowInsets(it.window.decorView)
+                            lastState = "status=${insets?.isVisible(WindowInsetsCompat.Type.statusBars())}, navigation=${insets?.isVisible(WindowInsetsCompat.Type.navigationBars())}"
                             matches = insets != null &&
                                 insets.isVisible(WindowInsetsCompat.Type.statusBars()) == visible &&
                                 insets.isVisible(WindowInsetsCompat.Type.navigationBars()) == visible
                         }
                         if (!matches) android.os.SystemClock.sleep(50)
                     }
-                    assertTrue("Status/navigation bars visibility should be $visible", matches)
+                    assertTrue("Status/navigation bars visibility should be $visible ($lastState)", matches)
                 }
                 awaitBars(true)
                 device.findObject(By.desc("Configuració")).click()

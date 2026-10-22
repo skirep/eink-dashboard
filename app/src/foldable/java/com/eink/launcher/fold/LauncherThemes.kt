@@ -50,7 +50,8 @@ internal object LauncherThemes {
         }
         if (view is MetroTile && MetroStyle.linux && !inDesktopWindow(view) && view.tag?.toString()?.startsWith("favorite:") != true && view.findViewWithTag<View>("linux-chrome") == null) {
             view.addView(TextView(view.context).apply {
-                tag = "linux-chrome"; text = "●  ●  ●     magicfold / panel"; textSize = 10f
+                tag = "linux-chrome"; text = "●  ~/magicfold"; textSize = 10f
+                maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
                 setPadding(8, 8, 8, 8); setBackgroundColor(0xff203a39.toInt())
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }, 0, LinearLayout.LayoutParams(-1, -2))
