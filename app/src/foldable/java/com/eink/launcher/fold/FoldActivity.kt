@@ -92,6 +92,10 @@ class FoldActivity : AppCompatActivity() {
     private var rightY = 0
     private var drawerY = 0
     private var renderedWide: Boolean? = null
+    internal val foldTransition by lazy { FoldTransition {
+        syncPerspective()
+        pages?.let { pager -> pager.post { flushPendingRender(pager) } }
+    } }
     private var entrancePending = true
     private var calendarPickerPending = false
     private var dataRenderPending = false
@@ -127,6 +131,7 @@ class FoldActivity : AppCompatActivity() {
         rightY = savedInstanceState?.getInt("rightY") ?: 0
         drawerY = savedInstanceState?.getInt("drawerY") ?: 0
         entrancePending = savedInstanceState == null
+        if (savedInstanceState?.containsKey("wasWide") == true) renderedWide = savedInstanceState.getBoolean("wasWide")
         if (!prefs.contains("pins")) {
             val initial = apps().take(4).map { key(it) }
             if (initial.isNotEmpty()) prefs.edit().putString("pins", org.json.JSONArray(initial).toString()).apply()
@@ -163,6 +168,7 @@ class FoldActivity : AppCompatActivity() {
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        foldTransition.focusChanged(hasFocus)
         if (hasFocus) { applyFullscreen(); pages?.let { flushPendingRender(it) } }
         syncPerspective()
     }
@@ -180,9 +186,9 @@ class FoldActivity : AppCompatActivity() {
         prefs.edit().putBoolean("fullscreen", enabled).apply()
         applyFullscreen()
     }
-    override fun onPause() { resumed = false; perspective.touch(false); perspective.enable(false); super.onPause() }
+    override fun onPause() { foldTransition.finish(false); resumed = false; perspective.touch(false); perspective.enable(false); super.onPause() }
     private fun syncPerspective() {
-        perspective.enable(resumed && hasWindowFocus() && !appDrawer && effectsAllowed() && prefs.getBoolean("perspective", true))
+        perspective.enable(resumed && hasWindowFocus() && !foldTransition.running && !appDrawer && effectsAllowed() && prefs.getBoolean("perspective", true))
     }
     private fun renderData() {
         // Data updates must not replace a focused search field or disturb an open dialog.
@@ -196,6 +202,7 @@ class FoldActivity : AppCompatActivity() {
     }
     override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig); render() }
     override fun onSaveInstanceState(out: Bundle) {
+        renderedWide?.let { out.putBoolean("wasWide", it) }
         saveScroll(); out.putBoolean("drawer", appDrawer); out.putString("search", search)
         out.putInt("homeY", homeY); out.putInt("rightY", rightY); out.putInt("drawerY", drawerY)
         super.onSaveInstanceState(out)
@@ -205,7 +212,7 @@ class FoldActivity : AppCompatActivity() {
     // The clock, photos and dock live outside the pager. A data refresh must not
     // remove their pressed view between DOWN and UP either.
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) { touchSequenceActive = true; perspective.touch(true) }
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) { touchSequenceActive = true; foldTransition.finish(); perspective.touch(true) }
         return try { super.dispatchTouchEvent(event) } finally {
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
                 touchSequenceActive = false
@@ -264,6 +271,11 @@ class FoldActivity : AppCompatActivity() {
     }
 
     private fun render() {
+        val requestedWide = FoldPolicy.expanded(resources.configuration.screenWidthDp, hinge != null)
+        if (foldTransition.running && renderedWide == requestedWide) {
+            dataRenderPending = true
+            return
+        }
         // Configuration and package callbacks also rebuild the hierarchy. Guard the
         // single render entry point, not only asynchronous weather/mail updates.
         if (touchSequenceActive || pages?.pointerDown == true || (pages?.pagingState ?: ViewPager.SCROLL_STATE_IDLE) != ViewPager.SCROLL_STATE_IDLE) {
@@ -276,7 +288,11 @@ class FoldActivity : AppCompatActivity() {
         saveScroll(); homeScroll = null; rightScroll = null; drawerScroll = null
         val width = resources.configuration.screenWidthDp
         val wide = FoldPolicy.expanded(width, hinge != null)
-        val animate = entrancePending || (renderedWide != null && renderedWide != wide)
+        val changingViewport = renderedWide != null && renderedWide != wide
+        foldTransition.finish(false)
+        val transition = changingViewport && prefs.getBoolean("foldTransition", true) && effectsAllowed()
+        val previous = if (transition) FoldTransition.capture((findViewById<ViewGroup>(android.R.id.content))?.getChildAt(0)) else null
+        val animate = !transition && (entrancePending || changingViewport)
         entrancePending = false; renderedWide = wide
         val snapshot = weatherStore.snapshot("cabrils")
         val sky = snapshot.data?.optJSONObject("current")?.takeIf {
@@ -478,6 +494,7 @@ class FoldActivity : AppCompatActivity() {
         LauncherThemes.style(root)
         setContentView(surface)
         applyFullscreen()
+        if (transition) foldTransition.start(surface, root, previous, wide)
         // The pager has no adapter children until its first layout. Bind the
         // already populated home tree instead, so real panels receive sensor updates.
         perspective.bind(homePage)
@@ -684,7 +701,7 @@ class FoldActivity : AppCompatActivity() {
 
     private fun settings() {
         val effects = if (prefs.getBoolean("effects", true)) "activats" else "desactivats"
-        AlertDialog.Builder(this).setTitle("MagicFold / Magic V2").setItems(arrayOf("Segona ciutat", "Calendaris Google i Outlook", "Efectes visuals: $effects", "Actualitza temps i agenda", "Launcher per defecte", "Configuració d’Android", "Prova els paisatges vius", "Imatge de fons", "Avisos de Gmail i Outlook", "Fonts de notícies", "Temes i perspectiva", "Pantalla completa: " + if (prefs.getBoolean("fullscreen", false)) "activada" else "desactivada")) { _, item ->
+        AlertDialog.Builder(this).setTitle("MagicFold / Magic V2").setItems(arrayOf("Segona ciutat", "Calendaris Google i Outlook", "Efectes visuals: $effects", "Actualitza temps i agenda", "Launcher per defecte", "Configuració d’Android", "Prova els paisatges vius", "Imatge de fons", "Avisos de Gmail i Outlook", "Fonts de notícies", "Temes i perspectiva", "Pantalla completa: " + if (prefs.getBoolean("fullscreen", false)) "activada" else "desactivada", "Transició en plegar: " + if (prefs.getBoolean("foldTransition", true)) "activada" else "desactivada")) { _, item ->
             when (item) {
                 0 -> cityDialog(); 1 -> calendarPicker()
                 2 -> { prefs.edit().putBoolean("effects", !prefs.getBoolean("effects", true)).apply(); entrancePending = true; render() }
@@ -695,6 +712,7 @@ class FoldActivity : AppCompatActivity() {
                 9 -> panels.newsSettings()
                 10 -> themeSettings()
                 11 -> setFullscreen(!prefs.getBoolean("fullscreen", false))
+                12 -> { prefs.edit().putBoolean("foldTransition", !prefs.getBoolean("foldTransition", true)).apply(); foldTransition.finish() }
             }
         }.show()
     }
