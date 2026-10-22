@@ -24,7 +24,14 @@ class FullscreenTest {
             device.executeShellCommand("wm density 420")
             ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
                 fun awaitBars(visible: Boolean) {
-                    assertTrue("Both system bars must change actual visibility", device.wait(Until.hasObject(By.desc("Configuració")), 10000))
+                    val homeVisible = device.wait(Until.hasObject(By.desc("Configuració")), 10000)
+                    if (!homeVisible) {
+                        device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/fullscreen-failure.png")
+                        val hierarchy = java.io.ByteArrayOutputStream()
+                        device.dumpWindowHierarchy(hierarchy)
+                        println("Fullscreen accessibility hierarchy: " + hierarchy.toString("UTF-8"))
+                    }
+                    assertTrue("Fullscreen home controls must remain accessible", homeVisible)
                     val deadline = System.currentTimeMillis() + 5000
                     var matches = false
                     var lastState = "no insets"
@@ -46,6 +53,9 @@ class FullscreenTest {
                 val toggle = UiScrollable(UiSelector().className("android.widget.ListView"))
                 toggle.scrollTextIntoView("Pantalla completa: desactivada")
                 device.findObject(By.text("Pantalla completa: desactivada")).click()
+                // Android's first-use immersive education is a system overlay.
+                // Acknowledge it as a user would before testing restart/navigation.
+                device.wait(Until.findObject(By.res("android:id/ok")), 5000)?.click()
                 awaitBars(false)
                 assertTrue(prefs.getBoolean("fullscreen", false))
                 device.executeShellCommand("mkdir -p /sdcard/Download/fold-metro")
