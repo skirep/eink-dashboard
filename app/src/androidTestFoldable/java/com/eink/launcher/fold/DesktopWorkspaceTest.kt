@@ -75,13 +75,13 @@ class DesktopWorkspaceTest {
                 val restored=bounds()
                 assertTrue("Recreation must keep the position",abs(restored.left-resized.left)<8 && abs(restored.top-resized.top)<8)
                 assertTrue("Recreation must keep the size",abs(restored.width()-resized.width())<8)
-                device.findObject(By.desc("Maximitza Temps")).click()
+                device.findObject(UiSelector().description("Maximitza Temps")).click()
                 device.waitForIdle()
                 assertTrue(bounds().width()>restored.width())
-                device.findObject(By.desc("Restaura Temps")).click()
-                device.findObject(By.desc("Minimitza Temps")).click()
+                device.findObject(UiSelector().description("Restaura Temps")).click()
+                device.findObject(UiSelector().description("Minimitza Temps")).click()
                 assertTrue(device.wait(Until.hasObject(By.desc("Restaura el panell Temps")),5000))
-                device.findObject(By.desc("Restaura el panell Temps")).click()
+                device.findObject(UiSelector().description("Restaura el panell Temps")).click()
                 assertTrue(device.wait(Until.hasObject(By.desc("Arrossega Temps")),5000))
                 device.executeShellCommand("wm size 1080x1920")
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista compacta")),10000))
@@ -90,7 +90,9 @@ class DesktopWorkspaceTest {
                 assertTrue(device.wait(Until.hasObject(By.desc("Arrossega Temps")),10000))
                 device.waitForIdle()
                 assertTrue("Unfolding restores saved desktop",abs(bounds().left-resized.left)<8)
-                device.findObject(By.desc("Pàgina aplicacions")).click()
+                // Resolve the control at action time: resize/data callbacks can
+                // replace accessibility nodes between a By lookup and click.
+                device.findObject(UiSelector().description("Pàgina aplicacions")).click()
                 assertTrue("Window drags must not break normal app-page navigation",device.wait(Until.hasObject(By.clazz("android.widget.EditText")),10000))
             }
         } finally {
