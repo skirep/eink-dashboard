@@ -113,9 +113,12 @@ internal class DesktopWorkspace(context: Context, private val prefs: SharedPrefe
             elevation = dp(10).toFloat()
             background = MetroStyle.surface(0xff0078d4.toInt(),0xff132c50.toInt(),dp(if (MetroStyle.desktop) 14 else 0).toFloat())
             clipToOutline = true
-            val bar = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
+            val bar = LinearLayout(context).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                if (MetroStyle.linux) setBackgroundColor(0xff203a39.toInt())
+            }
             val title = TextView(context).apply {
-                text = "≡ $label"; textSize = 13f; setTextColor(MetroStyle.text)
+                text = if (MetroStyle.linux) "~/" + when(windowKey) { "weather" -> "weather"; "agenda" -> "calendar"; "mail" -> "mail"; "news" -> "news"; else -> "apps" } else "≡ $label"; textSize = 13f; setTextColor(MetroStyle.text)
                 setPadding(dp(9),0,0,0); gravity = Gravity.CENTER_VERTICAL
                 maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
                 tag = "workspace-drag"; contentDescription = "Arrossega $label"; isFocusable = true

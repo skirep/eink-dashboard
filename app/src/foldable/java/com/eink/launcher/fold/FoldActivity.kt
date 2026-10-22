@@ -23,6 +23,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -160,8 +163,22 @@ class FoldActivity : AppCompatActivity() {
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) pages?.let { flushPendingRender(it) }
+        if (hasFocus) { applyFullscreen(); pages?.let { flushPendingRender(it) } }
         syncPerspective()
+    }
+    private fun applyFullscreen() {
+        // Keep normal inset/IME resizing; hidden bars have zero visible insets.
+        // Android still lets the user reveal transient bars with an edge swipe.
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (prefs.getBoolean("fullscreen", false)) hide(WindowInsetsCompat.Type.systemBars())
+            else show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+    internal fun setFullscreen(enabled: Boolean) {
+        prefs.edit().putBoolean("fullscreen", enabled).apply()
+        applyFullscreen()
     }
     override fun onPause() { resumed = false; perspective.touch(false); perspective.enable(false); super.onPause() }
     private fun syncPerspective() {
@@ -266,8 +283,9 @@ class FoldActivity : AppCompatActivity() {
             System.currentTimeMillis() - snapshot.updated in 0..2 * 60 * 60000L
         }
         val theme = LauncherThemes.id(prefs.getString("theme", LauncherThemes.METRO))
-        val ownBackdrop = (MetroStyle.windows || MetroStyle.desktop || MetroStyle.pirate) && !prefs.getBoolean("themePhoto_$theme", false)
+        val ownBackdrop = (MetroStyle.windows || MetroStyle.desktop || MetroStyle.pirate || MetroStyle.linux) && !prefs.getBoolean("themePhoto_$theme", false)
         val surface: FrameLayout = if (MetroStyle.terminal) TerminalScene(this)
+        else if (MetroStyle.linux && (ownBackdrop || wallpaper == null)) LinuxScene(this)
         else if (MetroStyle.desktop && (ownBackdrop || wallpaper == null)) DesktopScene(this, sky?.optInt("weather_code", -1) ?: -1, sky?.optInt("is_day", 1) == 0, prefs.getBoolean("effects", true))
         else WeatherScene(this, sky?.optInt("weather_code", -1) ?: -1,
             sky?.optInt("is_day", 1) == 0, prefs.getBoolean("effects", true) && !(MetroStyle.windows && ownBackdrop), animate,
@@ -283,6 +301,7 @@ class FoldActivity : AppCompatActivity() {
         }
         val title = column()
         val brand = when {
+            MetroStyle.linux -> "oriol@magicfold:~"
             MetroStyle.terminal -> "C:\\MAGICFOLD> HOME_"
             MetroStyle.cyberpunk -> "MAGICFOLD // NIGHT CITY"
             MetroStyle.windows -> "Inici"
@@ -290,15 +309,15 @@ class FoldActivity : AppCompatActivity() {
             MetroStyle.pirate -> "El quadern del capità"
             else -> "MagicFold     ·     Magic V2"
         }
-        title.addView(if (MetroStyle.windows || MetroStyle.desktop || MetroStyle.pirate)
+        title.addView(if (MetroStyle.windows || MetroStyle.desktop || MetroStyle.pirate || MetroStyle.linux)
             text(brand, if (MetroStyle.windows) 30f else if (MetroStyle.pirate) 17f else 11f, MetroStyle.mint)
             else caption(brand, MetroStyle.mint))
         val hourLine = LinearLayout(this).apply { gravity = Gravity.BOTTOM }
-        headerClock = text(clockText(), if (MetroStyle.windows || MetroStyle.desktop) 28f else if (MetroStyle.pirate) 36f else if (width < 420) 40f else 50f).apply {
+        headerClock = text(clockText(), if (MetroStyle.windows || MetroStyle.desktop || MetroStyle.linux) 28f else if (MetroStyle.pirate) 36f else if (width < 420) 40f else 50f).apply {
             contentDescription = "Obre rellotge i alarmes"; isFocusable = true; setOnClickListener { openClock() }
         }.also { hourLine.addView(it) }
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        if (!MetroStyle.windows && !MetroStyle.desktop && !MetroStyle.pirate && resources.configuration.fontScale <= 1.15f) hourLine.addView(text(when (hour) { in 6..12 -> "Bon dia."; in 13..19 -> "Bona tarda."; else -> "Bona nit." }, 14f, MetroStyle.muted), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(14); bottomMargin = dp(12) })
+        if (!MetroStyle.windows && !MetroStyle.desktop && !MetroStyle.pirate && !MetroStyle.linux && resources.configuration.fontScale <= 1.15f) hourLine.addView(text(when (hour) { in 6..12 -> "Bon dia."; in 13..19 -> "Bona tarda."; else -> "Bona nit." }, 14f, MetroStyle.muted), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(14); bottomMargin = dp(12) })
         title.addView(hourLine)
         title.addView(caption("◷  Rellotge i alarmes").apply {
             isFocusable = true; setOnClickListener { openClock() }; contentDescription = "Rellotge i alarmes"
@@ -349,7 +368,7 @@ class FoldActivity : AppCompatActivity() {
                 addAgenda(left, if (wide) 3 else 1, animate)
                 panels.mail(if (wide) right else left, wide)
                 panels.news(if (wide) right else left, wide)
-            } else if (MetroStyle.desktop) {
+            } else if (MetroStyle.desktop || MetroStyle.linux) {
                 addWeather(left, wide, animate)
                 block(left, caption("APLICACIONS PREFERIDES"), 6)
                 addFavorites(left, 4, animate)
@@ -380,7 +399,7 @@ class FoldActivity : AppCompatActivity() {
                 visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
             }
             block(right, homePrompt!!)
-            if (wide && (MetroStyle.windows || MetroStyle.desktop) && prefs.getBoolean("desktopEnabled", true)) {
+            if (wide && (MetroStyle.windows || MetroStyle.desktop || MetroStyle.linux) && prefs.getBoolean("desktopEnabled", true)) {
                 homePage.addView(DesktopWorkspace(this, prefs, theme, listOf(left,right)), LinearLayout.LayoutParams(-1,0,1f))
             } else addPanels(homePage, left, right, wide)
         }
@@ -458,6 +477,7 @@ class FoldActivity : AppCompatActivity() {
         } else root.addView(dock)
         LauncherThemes.style(root)
         setContentView(surface)
+        applyFullscreen()
         // The pager has no adapter children until its first layout. Bind the
         // already populated home tree instead, so real panels receive sensor updates.
         perspective.bind(homePage)
@@ -664,7 +684,7 @@ class FoldActivity : AppCompatActivity() {
 
     private fun settings() {
         val effects = if (prefs.getBoolean("effects", true)) "activats" else "desactivats"
-        AlertDialog.Builder(this).setTitle("MagicFold / Magic V2").setItems(arrayOf("Segona ciutat", "Calendaris Google i Outlook", "Efectes visuals: $effects", "Actualitza temps i agenda", "Launcher per defecte", "Configuració d’Android", "Prova els paisatges vius", "Imatge de fons", "Avisos de Gmail i Outlook", "Fonts de notícies", "Temes i perspectiva")) { _, item ->
+        AlertDialog.Builder(this).setTitle("MagicFold / Magic V2").setItems(arrayOf("Segona ciutat", "Calendaris Google i Outlook", "Efectes visuals: $effects", "Actualitza temps i agenda", "Launcher per defecte", "Configuració d’Android", "Prova els paisatges vius", "Imatge de fons", "Avisos de Gmail i Outlook", "Fonts de notícies", "Temes i perspectiva", "Pantalla completa: " + if (prefs.getBoolean("fullscreen", false)) "activada" else "desactivada")) { _, item ->
             when (item) {
                 0 -> cityDialog(); 1 -> calendarPicker()
                 2 -> { prefs.edit().putBoolean("effects", !prefs.getBoolean("effects", true)).apply(); entrancePending = true; render() }
@@ -674,6 +694,7 @@ class FoldActivity : AppCompatActivity() {
                 8 -> panels.mailSettings()
                 9 -> panels.newsSettings()
                 10 -> themeSettings()
+                11 -> setFullscreen(!prefs.getBoolean("fullscreen", false))
             }
         }.show()
     }
@@ -698,7 +719,7 @@ class FoldActivity : AppCompatActivity() {
                 0 -> { prefs.edit().putBoolean("desktopEnabled",!desktop).apply(); render() }
                 1 -> prefs.edit().putBoolean("windowedApps",!windowed).apply()
                 2 -> AlertDialog.Builder(this).setTitle("Finestres de les apps")
-                    .setMessage("Els panells de MagicFold es poden moure i redimensionar als temes Windows i macOS amb el mòbil obert.\n\nPer a altres apps, demanem una mida de finestra a Android. MagicOS pot ignorar-la i obrir l’app a pantalla completa. No totes les apps admeten finestres.\n\nA HONOR pots obrir les finestres flotants des de la barra lateral de multifinestra: llisca des d’un lateral, mantén el dit i toca l’app.")
+                    .setMessage("Els panells de MagicFold es poden moure i redimensionar als temes Windows, macOS i Linux amb el mòbil obert.\n\nPer a altres apps, demanem una mida de finestra a Android. MagicOS pot ignorar-la i obrir l’app a pantalla completa. No totes les apps admeten finestres.\n\nA HONOR pots obrir les finestres flotants des de la barra lateral de multifinestra: llisca des d’un lateral, mantén el dit i toca l’app.")
                     .setPositiveButton("Entesos",null).show()
             } }.setNegativeButton("Tanca",null).show()
     }
@@ -729,7 +750,7 @@ class FoldActivity : AppCompatActivity() {
         val overlay = prefs.getBoolean("photoWeather", true)
         val theme = LauncherThemes.id(prefs.getString("theme", LauncherThemes.METRO))
         val choices = mutableListOf("Tria una imatge del mòbil", "Efectes del temps sobre la imatge: " + (if (overlay) "activats" else "desactivats"), "Torna al paisatge original", "Desenfocament de la foto: " + (if (prefs.getBoolean("photoBlur", true)) "activat" else "desactivat"))
-        if (theme in listOf(LauncherThemes.WINDOWS, LauncherThemes.DESKTOP, LauncherThemes.PIRATE)) choices += "Recupera el fons d’aquest tema"
+        if (theme in listOf(LauncherThemes.WINDOWS, LauncherThemes.DESKTOP, LauncherThemes.PIRATE, LauncherThemes.LINUX)) choices += "Recupera el fons d’aquest tema"
         AlertDialog.Builder(this).setTitle("Imatge de fons")
             .setItems(choices.toTypedArray()) { _, item ->
                 when (item) {
@@ -862,7 +883,7 @@ class FoldActivity : AppCompatActivity() {
     }
     private fun openPackage(name: String) { val intent = packageManager.getLaunchIntentForPackage(name); if (intent != null) open(intent) else Toast.makeText(this, "L’aplicació no està instal·lada", Toast.LENGTH_LONG).show() }
     private fun open(intent: Intent) {
-        val requestWindow = Build.VERSION.SDK_INT >= 24 && (MetroStyle.windows || MetroStyle.desktop) &&
+        val requestWindow = Build.VERSION.SDK_INT >= 24 && (MetroStyle.windows || MetroStyle.desktop || MetroStyle.linux) &&
             FoldPolicy.expanded(resources.configuration.screenWidthDp, hinge != null) &&
             prefs.getBoolean("windowedApps",true) && intent.action?.startsWith("android.settings.") != true
         val options = if(requestWindow) {

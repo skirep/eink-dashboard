@@ -13,8 +13,9 @@ internal object LauncherThemes {
     const val WINDOWS = "windows10"
     const val DESKTOP = "macos"
     const val PIRATE = "monkey"
-    val ids = listOf(METRO, TERMINAL, CYBERPUNK, WINDOWS, DESKTOP, PIRATE)
-    val labels = arrayOf("Metro · paisatge meteorològic", "Terminal · MS-DOS / Linux", "Cyberpunk · Night City", "Windows 10 Mobile", "macOS · Escriptori", "Monkey Island · Port pirata")
+    const val LINUX = "linux"
+    val ids = listOf(METRO, TERMINAL, CYBERPUNK, WINDOWS, DESKTOP, PIRATE, LINUX)
+    val labels = arrayOf("Metro · paisatge meteorològic", "Terminal · MS-DOS / Linux", "Cyberpunk · Night City", "Windows 10 Mobile", "macOS · Escriptori", "Monkey Island · Port pirata", "Linux · Hacker desktop")
     fun id(value: String?) = value?.takeIf { it in ids } ?: METRO
     fun select(value: String?) {
         MetroStyle.terminal = id(value) == TERMINAL
@@ -22,6 +23,7 @@ internal object LauncherThemes {
         MetroStyle.windows = id(value) == WINDOWS
         MetroStyle.desktop = id(value) == DESKTOP
         MetroStyle.pirate = id(value) == PIRATE
+        MetroStyle.linux = id(value) == LINUX
     }
     private fun onDesktopSurface(view: View): Boolean {
         var node: View? = view
@@ -40,11 +42,18 @@ internal object LauncherThemes {
         return false
     }
     fun style(view: View) {
-        if (!MetroStyle.terminal && !MetroStyle.cyberpunk && !MetroStyle.windows && !MetroStyle.desktop && !MetroStyle.pirate) return
+        if (!MetroStyle.terminal && !MetroStyle.cyberpunk && !MetroStyle.windows && !MetroStyle.desktop && !MetroStyle.pirate && !MetroStyle.linux) return
         if(view is MetroTile && inDesktopWindow(view)) view.elevation = 0f
         if (view is MetroTile && MetroStyle.desktop && !inDesktopWindow(view) && view.tag?.toString()?.startsWith("favorite:") != true && view.findViewWithTag<View>("window-chrome") == null) {
             view.addView(WindowChrome(view.context).apply { tag = "window-chrome" }, 0,
                 LinearLayout.LayoutParams(-1, (22 * view.resources.displayMetrics.density).toInt()))
+        }
+        if (view is MetroTile && MetroStyle.linux && !inDesktopWindow(view) && view.tag?.toString()?.startsWith("favorite:") != true && view.findViewWithTag<View>("linux-chrome") == null) {
+            view.addView(TextView(view.context).apply {
+                tag = "linux-chrome"; text = "●  ●  ●     magicfold / panel"; textSize = 10f
+                setPadding(8, 8, 8, 8); setBackgroundColor(0xff203a39.toInt())
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, 0, LinearLayout.LayoutParams(-1, -2))
         }
         if (view is TextView) {
             view.typeface = MetroStyle.font

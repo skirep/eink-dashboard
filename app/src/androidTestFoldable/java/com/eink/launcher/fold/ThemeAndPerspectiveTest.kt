@@ -168,6 +168,8 @@ class ThemeAndPerspectiveTest {
     @Test fun desktopHasWindowChromeReadableCardsAndDock() = signatureTheme(LauncherThemes.DESKTOP, "MagicFold · Escriptori")
     @Test fun pirateHasArtworkAndFunctionalCaptainMap() = signatureTheme(LauncherThemes.PIRATE, "El quadern del capità")
 
+    @Test fun linuxDesktopThemePersistsAndKeepsNavigation() = signatureTheme(LauncherThemes.LINUX, "oriol@magicfold:~")
+
     private fun signatureTheme(theme: String, heading: String) {
         val prefs = context.getSharedPreferences("fold-metro", android.content.Context.MODE_PRIVATE)
         val original = prefs.getString("theme", null)
@@ -203,6 +205,11 @@ class ThemeAndPerspectiveTest {
                     if (theme == LauncherThemes.DESKTOP) {
                         assertTrue(cards.any { it.findViewWithTag<View>("window-chrome") != null })
                         assertTrue(androidx.core.graphics.ColorUtils.calculateContrast(MetroStyle.text, 0xffe9eef8.toInt()) > 7)
+                    }
+                    if (theme == LauncherThemes.LINUX) {
+                        assertTrue(cards.any { it.findViewWithTag<View>("linux-chrome") != null })
+                        assertTrue(androidx.core.graphics.ColorUtils.calculateContrast(MetroStyle.text, 0xff15232b.toInt()) > 7)
+                        assertEquals(Typeface.MONOSPACE, MetroStyle.font)
                     }
                     if (theme == LauncherThemes.PIRATE) {
                         assertTrue(cards.all { it.background is PirateFrame })

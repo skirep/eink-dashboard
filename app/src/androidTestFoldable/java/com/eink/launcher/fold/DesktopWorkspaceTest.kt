@@ -16,6 +16,7 @@ import kotlin.math.abs
 class DesktopWorkspaceTest {
     @Test fun windowsPanelsDragResizeMinimizeAndSurviveFold() = exercise(LauncherThemes.WINDOWS)
     @Test fun macPanelsDragResizeMinimizeAndSurviveFold() = exercise(LauncherThemes.DESKTOP)
+    @Test fun linuxPanelsDragResizeMinimizeAndSurviveFold() = exercise(LauncherThemes.LINUX)
     private fun exercise(theme: String) {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val context=instrumentation.targetContext

@@ -17,22 +17,25 @@ internal object MetroStyle {
     var windows = false
     var desktop = false
     var pirate = false
-    val background get() = when { terminal -> 0xff030905; cyberpunk -> 0xff090616; windows -> 0xff000000; desktop -> 0xffe9eef8; pirate -> 0xff100e23; else -> 0xff080b14 }.toInt()
-    val text get() = when { terminal -> 0xffb7ffc4; desktop -> 0xff202b3e; pirate -> 0xffffecc0; else -> 0xfff5f7ff }.toInt()
-    val muted get() = when { terminal -> 0xff80b88c; cyberpunk -> 0xffb8b2d6; desktop -> 0xff4c5c73; pirate -> 0xffd7bc85; else -> 0xffa9b6d0 }.toInt()
-    val mint get() = when { terminal -> 0xff75f59b; cyberpunk -> 0xff65f7ff; windows -> 0xff52c4ff; desktop -> 0xff005ac1; pirate -> 0xffffd16e; else -> 0xff8af5dc }.toInt()
-    val blue get() = when { terminal -> 0xffefc778; cyberpunk -> 0xffff9ce3; desktop -> 0xff005ac1; pirate -> 0xffa2e3d2; else -> 0xff9cbeff }.toInt()
+    var linux = false
+    val background get() = when { linux -> 0xff080f17; terminal -> 0xff030905; cyberpunk -> 0xff090616; windows -> 0xff000000; desktop -> 0xffe9eef8; pirate -> 0xff100e23; else -> 0xff080b14 }.toInt()
+    val text get() = when { linux -> 0xffdcece6; terminal -> 0xffb7ffc4; desktop -> 0xff202b3e; pirate -> 0xffffecc0; else -> 0xfff5f7ff }.toInt()
+    val muted get() = when { linux -> 0xff91a9ac; terminal -> 0xff80b88c; cyberpunk -> 0xffb8b2d6; desktop -> 0xff4c5c73; pirate -> 0xffd7bc85; else -> 0xffa9b6d0 }.toInt()
+    val mint get() = when { linux -> 0xff85f2b0; terminal -> 0xff75f59b; cyberpunk -> 0xff65f7ff; windows -> 0xff52c4ff; desktop -> 0xff005ac1; pirate -> 0xffffd16e; else -> 0xff8af5dc }.toInt()
+    val blue get() = when { linux -> 0xffedc77f; terminal -> 0xffefc778; cyberpunk -> 0xffff9ce3; desktop -> 0xff005ac1; pirate -> 0xffa2e3d2; else -> 0xff9cbeff }.toInt()
     val radius get() = when { terminal || windows || pirate -> 0f; desktop -> 16f; else -> 7f }
-    val font get() = when { terminal || cyberpunk -> Typeface.MONOSPACE; pirate -> Typeface.create("serif", Typeface.NORMAL); windows -> Typeface.create("sans-serif-light", Typeface.NORMAL); else -> Typeface.create("sans-serif", Typeface.NORMAL) }
+    val font get() = when { terminal || cyberpunk || linux -> Typeface.MONOSPACE; pirate -> Typeface.create("serif", Typeface.NORMAL); windows -> Typeface.create("sans-serif-light", Typeface.NORMAL); else -> Typeface.create("sans-serif", Typeface.NORMAL) }
     fun surface(start: Int, end: Int, radius: Float = 0f) = GradientDrawable(
         GradientDrawable.Orientation.TL_BR,
-        if (terminal && start != -1) intArrayOf(0xf20a170e.toInt(), 0xf2050e09.toInt())
+        if (linux && start != -1) intArrayOf(0xf515232b.toInt(), 0xfa101a23.toInt())
+        else if (terminal && start != -1) intArrayOf(0xf20a170e.toInt(), 0xf2050e09.toInt())
         else if (cyberpunk && start != -1) intArrayOf(0xf227143f.toInt(), 0xf00b1830.toInt())
         else if (desktop && start != -1) intArrayOf(0xfaf9fbff.toInt(), 0xf5e9eef8.toInt())
         else if (pirate && start != -1) intArrayOf(0xf51c182c.toInt(), 0xed10242c.toInt())
         else if (windows && start != -1) intArrayOf(0xff0078d4.toInt(), 0xff0078d4.toInt()) else intArrayOf(start, end)
     ).apply { cornerRadius = if (terminal || windows || pirate) 0f else radius
-        if (terminal && start != -1) setStroke(1, 0xff3b8052.toInt())
+        if (linux && start != -1) setStroke(1, 0xff397663.toInt())
+        else if (terminal && start != -1) setStroke(1, 0xff3b8052.toInt())
         else if (cyberpunk && start != -1) setStroke(2, 0xff6669b8.toInt())
         else if (desktop && start != -1) setStroke(1, 0x90ffffff.toInt())
         else if (pirate && start != -1) setStroke(2, 0xffad7a42.toInt()) }
