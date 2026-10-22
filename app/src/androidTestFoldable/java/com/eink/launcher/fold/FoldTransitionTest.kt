@@ -6,6 +6,8 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.*
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,21 +34,29 @@ class FoldTransitionTest {
             device.executeShellCommand("mkdir -p /sdcard/Download/fold-metro")
             ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
                 assertTrue(device.wait(Until.hasObject(By.desc("Configuració")), 10000))
+                // ActivityScenario.onActivity waits for idle, which would consume
+                // the entire animation before its first observation.
+                fun onMain(action: (FoldActivity) -> Unit) {
+                    instrumentation.runOnMainSync {
+                        ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+                            .filterIsInstance<FoldActivity>().firstOrNull()?.let(action)
+                    }
+                }
                 fun awaitState(label: String, condition: (FoldActivity) -> Boolean) {
                     val end = System.currentTimeMillis() + 10000
                     var matched = false
                     while (!matched && System.currentTimeMillis() < end) {
-                        scenario.onActivity { matched = condition(it) }
+                        onMain { matched = condition(it) }
                         if (!matched) android.os.SystemClock.sleep(20)
                     }
                     var state = ""
-                    scenario.onActivity { state = "starts=${it.foldTransition.starts}, running=${it.foldTransition.running}, progress=${it.foldTransition.progress}, expanded=${it.foldTransition.lastExpanded}, width=${it.resources.configuration.screenWidthDp}, focus=${it.hasWindowFocus()}, animations=${android.animation.ValueAnimator.areAnimatorsEnabled()}" }
+                    onMain { state = "starts=${it.foldTransition.starts}, running=${it.foldTransition.running}, progress=${it.foldTransition.progress}, expanded=${it.foldTransition.lastExpanded}, width=${it.resources.configuration.screenWidthDp}, focus=${it.hasWindowFocus()}, animations=${android.animation.ValueAnimator.areAnimatorsEnabled()}" }
                     if (!matched) device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/fold-transition-failure.png")
                     assertTrue("$label ($state)", matched)
                 }
                 fun assertClean() {
                     awaitState("Transition should complete", { !it.foldTransition.running })
-                    scenario.onActivity { activity ->
+                    onMain { activity ->
                         val scene = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as ViewGroup
                         assertNull("Snapshot overlay must be released", scene.findViewWithTag<View>("fold-transition-overlay"))
                         val root = scene.getChildAt(scene.childCount - 1)
@@ -78,15 +88,15 @@ class FoldTransitionTest {
                     device.findObject(UiSelector().text("Transició en plegar: activada")).click()
                     assertFalse(prefs.getBoolean("foldTransition", true))
                     var starts = 0
-                    scenario.onActivity { starts = it.foldTransition.starts }
+                    onMain { starts = it.foldTransition.starts }
                     device.executeShellCommand("wm size 540x1080")
                     assertTrue(device.wait(Until.hasObject(By.textContains("Vista compacta")), 10000))
-                    scenario.onActivity { assertEquals(starts, it.foldTransition.starts) }
+                    onMain { assertEquals(starts, it.foldTransition.starts) }
                     assertClean()
                     prefs.edit().putBoolean("foldTransition", true).putBoolean("effects", false).commit()
                     device.executeShellCommand("wm size 960x1080")
                     assertTrue(device.wait(Until.hasObject(By.textContains("Vista ampla")), 10000))
-                    scenario.onActivity { assertEquals(starts, it.foldTransition.starts) }
+                    onMain { assertEquals(starts, it.foldTransition.starts) }
                 } else {
                     device.executeShellCommand("wm size 540x1080")
                     awaitState("Closing must animate in the other direction", {
