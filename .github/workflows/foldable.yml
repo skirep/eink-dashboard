@@ -1,0 +1,55 @@
+name: MagicFold APK
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-34 build-tools;34.0.0
+          log-accepted-android-sdk-licenses: false
+      - run: chmod +x gradlew
+      - run: ./gradlew testFoldableDebugUnitTest assembleFoldableDebug assembleFoldableDebugAndroidTest lintFoldableDebug assembleEinkDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MagicFold-Android
+          path: app/build/outputs/apk/foldable/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: MagicFold-validation
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-foldableDebug.html
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Smoke test resizing and capture actual UI
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          # Generic AVDs may emulate physical keys and omit the navigation bar.
+          # Exercise immersive mode against real status AND navigation bars.
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -prop qemu.hw.mainkeys=0
+          script: ./gradlew connectedFoldableDebugAndroidTest; test_result=$?; mkdir -p screenshots; adb pull /sdcard/Download/fold-metro/ screenshots/; exit "$test_result"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: MagicFold-device-tests
+          path: |
+            screenshots/
+            app/build/reports/androidTests/

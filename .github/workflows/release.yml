@@ -31,13 +31,13 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleEinkDebug
 
       - name: Rename APK with version tag
         run: |
           VERSION=${GITHUB_REF_NAME}
-          mv app/build/outputs/apk/debug/app-debug.apk \
-             app/build/outputs/apk/debug/eink-dashboard-${VERSION}.apk
+          mv app/build/outputs/apk/eink/debug/app-eink-debug.apk \
+             app/build/outputs/apk/eink/debug/eink-dashboard-${VERSION}.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -45,4 +45,4 @@ jobs:
           name: "eink-dashboard ${{ github.ref_name }}"
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
-          files: app/build/outputs/apk/debug/eink-dashboard-${{ github.ref_name }}.apk
+          files: app/build/outputs/apk/eink/debug/eink-dashboard-${{ github.ref_name }}.apk

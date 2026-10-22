@@ -1,5 +1,15 @@
 # E-Ink Dashboard Launcher
 
+## Fold Metro — mòbils plegables
+
+Nova variant Android amb mosaics estil Windows 10 Mobile, agenda real i temps,
+adaptació al plec i a pantalles compactes/amples.
+[Instal·lació i detalls](FOLD_METRO.md).
+
+Compila amb `./gradlew assembleFoldableDebug`.
+La variant e-ink es compila ara amb `./gradlew assembleEinkDebug`.
+
+
 An Android home-screen launcher optimised for **e-ink displays** (originally
 targeting the Yota Phone 2, but usable on any Android device with an e-ink
 panel).
@@ -25,7 +35,7 @@ panel).
 ```bash
 git clone https://github.com/skirep/eink-dashboard.git
 cd eink-dashboard
-./gradlew assembleDebug
+./gradlew assembleEinkDebug
 ```
 
 ### 2. Configure Weather API (Optional)
@@ -109,13 +119,13 @@ adb push my_photo.jpg \
 
 Requirements:
 * Android SDK (API 34)
-* JDK 8 or later
+* JDK 17
 * Internet access to [Google Maven](https://maven.google.com) for the Android
   Gradle Plugin
 
 ```bash
-./gradlew assembleDebug
-# APK will be at app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleEinkDebug
+# APK will be at app/build/outputs/apk/eink/debug/app-eink-debug.apk
 ```
 
 ---
