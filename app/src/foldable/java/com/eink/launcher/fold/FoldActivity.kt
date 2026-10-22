@@ -92,6 +92,7 @@ class FoldActivity : AppCompatActivity() {
     private var rightY = 0
     private var drawerY = 0
     private var renderedWide: Boolean? = null
+    private var pendingFoldReveal = false
     internal val foldTransition by lazy { FoldTransition {
         syncPerspective()
         pages?.let { pager -> pager.post { flushPendingRender(pager) } }
@@ -131,6 +132,7 @@ class FoldActivity : AppCompatActivity() {
         rightY = savedInstanceState?.getInt("rightY") ?: 0
         drawerY = savedInstanceState?.getInt("drawerY") ?: 0
         entrancePending = savedInstanceState == null
+        pendingFoldReveal = savedInstanceState?.getBoolean("foldReveal") ?: false
         if (savedInstanceState?.containsKey("wasWide") == true) renderedWide = savedInstanceState.getBoolean("wasWide")
         if (!prefs.contains("pins")) {
             val initial = apps().take(4).map { key(it) }
@@ -165,11 +167,13 @@ class FoldActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume(); resumed = true; refreshAgenda(); renderData(); syncPerspective()
         homePrompt?.visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
+        resumeFoldReveal()
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus && foldTransition.running && foldTransition.progress < 1f) pendingFoldReveal = true
         foldTransition.focusChanged(hasFocus)
-        if (hasFocus) { applyFullscreen(); pages?.let { flushPendingRender(it) } }
+        if (hasFocus) { applyFullscreen(); pages?.let { flushPendingRender(it) }; resumeFoldReveal() }
         syncPerspective()
     }
     private fun applyFullscreen() {
@@ -186,7 +190,16 @@ class FoldActivity : AppCompatActivity() {
         prefs.edit().putBoolean("fullscreen", enabled).apply()
         applyFullscreen()
     }
-    override fun onPause() { foldTransition.finish(false); resumed = false; perspective.touch(false); perspective.enable(false); super.onPause() }
+    override fun onPause() { if (foldTransition.running) pendingFoldReveal = true; foldTransition.finish(false); resumed = false; perspective.touch(false); perspective.enable(false); super.onPause() }
+    private fun resumeFoldReveal() {
+        if (!pendingFoldReveal || !resumed || !hasWindowFocus()) return
+        pendingFoldReveal = false
+        if (!prefs.getBoolean("foldTransition", true) || !effectsAllowed()) return
+        val scene = findViewById<ViewGroup>(android.R.id.content)?.getChildAt(0) as? FrameLayout ?: return
+        val root = scene.getChildAt(scene.childCount - 1) ?: return
+        foldTransition.start(scene, root, null, renderedWide ?: false)
+        syncPerspective()
+    }
     private fun syncPerspective() {
         perspective.enable(resumed && hasWindowFocus() && !foldTransition.running && !appDrawer && effectsAllowed() && prefs.getBoolean("perspective", true))
     }
@@ -202,6 +215,7 @@ class FoldActivity : AppCompatActivity() {
     }
     override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig); render() }
     override fun onSaveInstanceState(out: Bundle) {
+        out.putBoolean("foldReveal", pendingFoldReveal || foldTransition.running)
         renderedWide?.let { out.putBoolean("wasWide", it) }
         saveScroll(); out.putBoolean("drawer", appDrawer); out.putString("search", search)
         out.putInt("homeY", homeY); out.putInt("rightY", rightY); out.putInt("drawerY", drawerY)
@@ -212,7 +226,7 @@ class FoldActivity : AppCompatActivity() {
     // The clock, photos and dock live outside the pager. A data refresh must not
     // remove their pressed view between DOWN and UP either.
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) { touchSequenceActive = true; foldTransition.finish(); perspective.touch(true) }
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) { touchSequenceActive = true; pendingFoldReveal = false; foldTransition.finish(); perspective.touch(true) }
         return try { super.dispatchTouchEvent(event) } finally {
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
                 touchSequenceActive = false

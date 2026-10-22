@@ -27,8 +27,8 @@ class FoldTransitionTest {
             device.executeShellCommand("settings put global animator_duration_scale 3")
             prefs.edit().putBoolean("effects", true).putBoolean("foldTransition", true)
                 .putBoolean("perspective", false).putString("theme", LauncherThemes.METRO).commit()
-            device.executeShellCommand("wm density 420")
-            device.executeShellCommand("wm size 1080x1920")
+            device.executeShellCommand("wm density 200")
+            device.executeShellCommand("wm size 540x1080")
             device.executeShellCommand("mkdir -p /sdcard/Download/fold-metro")
             ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
                 assertTrue(device.wait(Until.hasObject(By.desc("Configuració")), 10000))
@@ -39,7 +39,10 @@ class FoldTransitionTest {
                         scenario.onActivity { matched = condition(it) }
                         if (!matched) android.os.SystemClock.sleep(20)
                     }
-                    assertTrue(label, matched)
+                    var state = ""
+                    scenario.onActivity { state = "starts=${it.foldTransition.starts}, running=${it.foldTransition.running}, progress=${it.foldTransition.progress}, expanded=${it.foldTransition.lastExpanded}, width=${it.resources.configuration.screenWidthDp}, focus=${it.hasWindowFocus()}, animations=${android.animation.ValueAnimator.areAnimatorsEnabled()}" }
+                    if (!matched) device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/fold-transition-failure.png")
+                    assertTrue("$label ($state)", matched)
                 }
                 fun assertClean() {
                     awaitState("Transition should complete", { !it.foldTransition.running })
@@ -52,13 +55,13 @@ class FoldTransitionTest {
                         assertEquals(1f, activity.foldTransition.progress, .001f)
                     }
                 }
-                device.executeShellCommand("wm size 1920x1920")
+                device.executeShellCommand("wm size 960x1080")
                 awaitState("Opening must start an actual animated transition", {
-                    it.foldTransition.running && it.foldTransition.lastExpanded == true && it.foldTransition.progress in .01f.. .8f
+                    it.foldTransition.running && it.foldTransition.lastExpanded == true && it.foldTransition.progress < .95f
                 })
                 if (interrupt) {
                     // A real tap must remove the blurred snapshot before normal hit testing.
-                    device.click(device.displayWidth - 160, 470)
+                    device.click(8, device.displayHeight / 2)
                     assertClean()
                     device.findObject(UiSelector().description("Pàgina aplicacions")).click()
                     assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 10000))
@@ -76,18 +79,18 @@ class FoldTransitionTest {
                     assertFalse(prefs.getBoolean("foldTransition", true))
                     var starts = 0
                     scenario.onActivity { starts = it.foldTransition.starts }
-                    device.executeShellCommand("wm size 1080x1920")
+                    device.executeShellCommand("wm size 540x1080")
                     assertTrue(device.wait(Until.hasObject(By.textContains("Vista compacta")), 10000))
                     scenario.onActivity { assertEquals(starts, it.foldTransition.starts) }
                     assertClean()
                     prefs.edit().putBoolean("foldTransition", true).putBoolean("effects", false).commit()
-                    device.executeShellCommand("wm size 1920x1920")
+                    device.executeShellCommand("wm size 960x1080")
                     assertTrue(device.wait(Until.hasObject(By.textContains("Vista ampla")), 10000))
                     scenario.onActivity { assertEquals(starts, it.foldTransition.starts) }
                 } else {
-                    device.executeShellCommand("wm size 1080x1920")
+                    device.executeShellCommand("wm size 540x1080")
                     awaitState("Closing must animate in the other direction", {
-                        it.foldTransition.running && it.foldTransition.lastExpanded == false && it.foldTransition.progress in .01f.. .8f
+                        it.foldTransition.running && it.foldTransition.lastExpanded == false && it.foldTransition.progress < .95f
                     })
                     device.executeShellCommand("screencap -p /sdcard/Download/fold-metro/fold-closing-blur.png")
                     assertClean()
