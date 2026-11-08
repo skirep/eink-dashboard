@@ -148,3 +148,10 @@ The MagicFold implementation lives on `feature/foldable-metro` (PR #4).
 - Weather gradients, terrain paths and photo colour filters are prepared once per viewport instead of rebuilt every animated frame. Sensor transforms ignore tiny changes at rest.
 
 Validation for this increment: run `./gradlew testFoldableDebugUnitTest lintFoldableDebug assembleFoldableDebug assembleFoldableDebugAndroidTest assembleEinkDebug` and `./gradlew connectedFoldableDebugAndroidTest`. New coverage checks accent/locale search and verifies that a 1,000-app drawer only inflates viewport rows. Device frame times and battery improvements still require measurement on a real HONOR Magic V2; no percentage speedup is claimed.
+
+
+### Optional compatible APK
+
+`./gradlew assembleFoldableCompatible` builds the same launcher without the notification-listener service and without the debuggable flag. This edition keeps app launching, themes, weather, calendar and mail-app shortcuts, but cannot show Gmail/Outlook notification previews or request notification-listener access. The complete debug build remains available separately. The compatible APK is signed with the CI debug key; installing over a differently signed copy is still unsupported.
+
+The CI checks the final merged manifest for notification/accessibility/SMS access, verifies signing and installs/launches the compatible APK on the emulator before running the existing debug suite. Device-specific Play Protect acceptance still requires confirmation on the device.

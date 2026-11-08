@@ -65,8 +65,21 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
             activity.repeatOnLifecycle(Lifecycle.State.STARTED) { MailNotifications.state.collect { changed() } }
         }
     }
+    private val mailAvailable by lazy {
+        runCatching {
+            activity.packageManager.getServiceInfo(ComponentName(activity.packageName,
+                "com.eink.launcher.fold.MailNotificationService"), 0)
+            true
+        }.getOrDefault(false)
+    }
     private fun hasMailAccess() = NotificationManagerCompat.getEnabledListenerPackages(activity).contains(activity.packageName)
     fun mailSettings() {
+        if (!mailAvailable) {
+            AlertDialog.Builder(activity).setTitle("Correu · edició compatible")
+                .setMessage("Aquesta edició no llegeix notificacions ni demana aquest accés especial. Les previsualitzacions de correu no estan disponibles; pots obrir Gmail i Outlook amb les dreceres.")
+                .setPositiveButton("D’acord", null).show()
+            return
+        }
         AlertDialog.Builder(activity).setTitle("Avisos de Gmail i Outlook")
             .setMessage("Mostra les notificacions actives de Gmail i Outlook: remitent, assumpte i previsualització. No és la safata d’entrada ni el total de correus sense llegir.\n\nAndroid demanarà accés a notificacions. MagicFold filtra les altres apps, no desa els correus al disc i no els envia a cap servidor. Pots retirar l’accés a Configuració d’Android.")
             .setPositiveButton("Configura l’accés") { _, _ -> open(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
@@ -87,6 +100,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
         val snapshot = MailNotifications.state.value
         val locked = (activity.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
         when {
+            !mailAvailable -> card.addView(text("Edició compatible · sense accés a notificacions. Obre el correu amb les dreceres.", 13f))
             !hasMailAccess() -> card.addView(button("Connecta els avisos") { mailSettings() })
             locked -> card.addView(text("Desbloqueja per veure el correu", 13f))
             !snapshot.connected -> card.addView(text("Esperant les notificacions…", 13f, MetroStyle.muted))
@@ -106,7 +120,7 @@ internal class DashboardPanels(private val activity: AppCompatActivity,
                 }
             }
         }
-        if (expanded) {
+        if (expanded || !mailAvailable) {
             val shortcuts = LinearLayout(activity)
             listOf("Gmail" to "com.google.android.gm", "Outlook" to "com.microsoft.office.outlook").forEach { (label, pkg) ->
                 shortcuts.addView(button(label) { openPackage(pkg) }, LinearLayout.LayoutParams(0, dp(44), 1f))

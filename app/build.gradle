@@ -52,6 +52,17 @@ android {
         }
     }
 
+    // Optional build for sideloading without notification-listener special access.
+    buildTypes {
+        compatible {
+            initWith release
+            debuggable false
+            signingConfig signingConfigs.debug
+            versionNameSuffix "-compatible"
+            matchingFallbacks = ['release']
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
