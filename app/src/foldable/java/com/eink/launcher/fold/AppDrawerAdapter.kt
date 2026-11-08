@@ -64,6 +64,7 @@ internal class AppDrawerAdapter(
         holder.job?.cancel()
         holder.letter.visibility = if (MetroStyle.windows && (position == 0 || rows[position - 1].initial != app.initial)) View.VISIBLE else View.GONE
         holder.letter.text = app.initial
+        holder.letter.contentDescription = "Grup ${app.initial}"
         holder.label.text = app.label + if (app.id in pinned) "  ▪" else ""
         holder.body.contentDescription = app.label + if (app.id in pinned) ". Fixada. Mantén premut per treure-la." else ". Mantén premut per fixar-la."
         holder.icon.setImageResource(android.R.drawable.sym_def_app_icon)
