@@ -41,6 +41,8 @@ internal class PanelPerspective(private val context: Context) : SensorEventListe
     private var touching = false
     private var lastPolicyCheck = 0L
     private var viewport: Pair<Int, Int>? = null
+    private var lastX = Float.NaN
+    private var lastY = Float.NaN
     private val frame = object : Runnable {
         override fun run() {
             if (!active) return
@@ -71,11 +73,14 @@ internal class PanelPerspective(private val context: Context) : SensorEventListe
     internal fun advance() {
         if (touching) return
         filter.step(pitch, roll)
-        tiles.forEach { apply(it, filter.x, filter.y) }
+        // Avoid invalidating the whole home for subpixel sensor noise at rest.
+        if (kotlin.math.abs(filter.x - lastX) < .015f && kotlin.math.abs(filter.y - lastY) < .015f) return
+        lastX = filter.x; lastY = filter.y
+        tiles.forEach { if (it.isShown) apply(it, filter.x, filter.y) }
     }
     fun touch(down: Boolean) { touching = down }
     fun recalibrate() {
-        calibrated = false; pitch = 0f; roll = 0f; filter.reset()
+        calibrated = false; pitch = 0f; roll = 0f; filter.reset(); lastX = Float.NaN; lastY = Float.NaN
         tiles.forEach { apply(it, 0f, 0f) }
     }
     fun enable(enabled: Boolean) {
@@ -90,7 +95,7 @@ internal class PanelPerspective(private val context: Context) : SensorEventListe
         acceptRotation(event.values, displayRotation)
     }
     internal fun acceptRotation(vector: FloatArray, displayRotation: Int) {
-        if (touching || vector.size < 3 || vector.take(4).any { !it.isFinite() }) return
+        if (touching || vector.size < 3 || (0 until minOf(vector.size, 4)).any { !vector[it].isFinite() }) return
         hasReadings = true
         if (displayRotation != rotation) { rotation = displayRotation; calibrated = false }
         SensorManager.getRotationMatrixFromVector(matrix, vector)

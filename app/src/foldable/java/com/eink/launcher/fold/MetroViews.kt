@@ -6,6 +6,7 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.content.res.ColorStateList
 import android.view.View
+import android.view.MotionEvent
 import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -42,6 +43,52 @@ internal object MetroStyle {
 }
 
 internal class MetroTile(context: Context, start: Int, end: Int) : LinearLayout(context) {
+    var motionEnabled = true
+    private val lightPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val lightMatrix = Matrix()
+    private var light: RadialGradient? = null
+    private var lightX = 0f
+    private var lightY = 0f
+    private var illuminated = false
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w > 0 && h > 0) light = RadialGradient(0f, 0f, max(w, h) * .8f,
+            intArrayOf(0x448af5dc, 0x008af5dc), null, Shader.TileMode.CLAMP)
+    }
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        val allowed = motionEnabled && !MetroStyle.windows &&
+            !(context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isPowerSaveMode &&
+            (android.os.Build.VERSION.SDK_INT < 26 || android.animation.ValueAnimator.areAnimatorsEnabled())
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> if (allowed) {
+                illuminated = true
+                animate().scaleX(.975f).scaleY(.975f).setDuration(100).start()
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                illuminated = false
+                animate().scaleX(1f).scaleY(1f).setDuration(if (allowed) 180 else 0).start()
+            }
+        }
+        if (illuminated) { lightX = event.x; lightY = event.y }
+        invalidate()
+        return super.dispatchTouchEvent(event)
+    }
+    override fun dispatchDraw(canvas: Canvas) {
+        if (illuminated) {
+            lightMatrix.setTranslate(lightX, lightY); light?.setLocalMatrix(lightMatrix)
+            lightPaint.shader = light
+            canvas.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(),
+                resources.displayMetrics.density * MetroStyle.radius,
+                resources.displayMetrics.density * MetroStyle.radius, lightPaint)
+        }
+        super.dispatchDraw(canvas)
+    }
+    override fun onDetachedFromWindow() {
+        animate().cancel(); illuminated = false; scaleX = 1f; scaleY = 1f
+        super.onDetachedFromWindow()
+    }
+
     init {
         orientation = VERTICAL
         val density = resources.displayMetrics.density

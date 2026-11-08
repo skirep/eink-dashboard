@@ -135,3 +135,16 @@ Requirements:
 1. Install the APK on the device.
 2. Press the **Home** button.
 3. Select **E-Ink Launcher** from the resolver dialog and choose **Always**.
+
+
+### MagicFold 0.17 — responsive app library and tactile tiles
+
+The MagicFold implementation lives on `feature/foldable-metro` (PR #4).
+
+- Launcher metadata and labels load on `Dispatchers.IO`, once per foreground scan or package change. Home renders without waiting for PackageManager.
+- The app drawer recycles visible rows, keeps a bounded 64-icon cache, and loads icons off the main thread. Searching never rescans installed packages or decodes every app icon.
+- Search ignores accents and case, displays a result count, supports keyboard Go, and keeps the search field and scroll position when pinning apps.
+- Page swipes have subtle depth and fade. Tiles compress under touch with a mint light that follows the finger; effects respect the existing animation and battery policy.
+- Weather gradients, terrain paths and photo colour filters are prepared once per viewport instead of rebuilt every animated frame. Sensor transforms ignore tiny changes at rest.
+
+Validation for this increment: run `./gradlew testFoldableDebugUnitTest lintFoldableDebug assembleFoldableDebug assembleFoldableDebugAndroidTest assembleEinkDebug` and `./gradlew connectedFoldableDebugAndroidTest`. New coverage checks accent/locale search and verifies that a 1,000-app drawer only inflates viewport rows. Device frame times and battery improvements still require measurement on a real HONOR Magic V2; no percentage speedup is claimed.

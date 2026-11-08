@@ -5,7 +5,6 @@ import android.animation.ValueAnimator
 import android.app.role.RoleManager
 import android.content.*
 import android.content.pm.PackageManager
-import android.content.pm.ResolveInfo
 import android.content.res.Configuration
 import android.database.ContentObserver
 import android.graphics.Bitmap
@@ -36,6 +35,8 @@ import kotlinx.coroutines.flow.collect
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.viewpager.widget.ViewPager
 import com.eink.launcher.R
 
@@ -87,10 +88,16 @@ class FoldActivity : AppCompatActivity() {
     private var headerDate: TextView? = null
     private var homeScroll: ScrollView? = null
     private var rightScroll: ScrollView? = null
-    private var drawerScroll: ScrollView? = null
+    private var drawerScroll: RecyclerView? = null
+    private val appCatalog by lazy { AppCatalog(this) }
+    private var installedApps = emptyList<LauncherApp>()
+    private var appsLoaded = false
+    private var appScan: Job? = null
+    private var updateDrawer: (() -> Unit)? = null
+    private var drawerPosition = 0
+    private var drawerOffset = 0
     private var homeY = 0
     private var rightY = 0
-    private var drawerY = 0
     private var renderedWide: Boolean? = null
     private var pendingFoldReveal = false
     internal val foldTransition by lazy { FoldTransition {
@@ -113,7 +120,7 @@ class FoldActivity : AppCompatActivity() {
         override fun onChange(selfChange: Boolean) { refreshAgenda() }
     }
     private val packageReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) { render() }
+        override fun onReceive(context: Context?, intent: Intent?) { appCatalog.invalidateIcons(); refreshApps(true) }
     }
     private val handler = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
@@ -130,14 +137,11 @@ class FoldActivity : AppCompatActivity() {
         search = savedInstanceState?.getString("search") ?: ""
         homeY = savedInstanceState?.getInt("homeY") ?: 0
         rightY = savedInstanceState?.getInt("rightY") ?: 0
-        drawerY = savedInstanceState?.getInt("drawerY") ?: 0
+        drawerPosition = savedInstanceState?.getInt("drawerPosition") ?: 0
+        drawerOffset = savedInstanceState?.getInt("drawerOffset") ?: 0
         entrancePending = savedInstanceState == null
         pendingFoldReveal = savedInstanceState?.getBoolean("foldReveal") ?: false
         if (savedInstanceState?.containsKey("wasWide") == true) renderedWide = savedInstanceState.getBoolean("wasWide")
-        if (!prefs.contains("pins")) {
-            val initial = apps().take(4).map { key(it) }
-            if (initial.isNotEmpty()) prefs.edit().putString("pins", org.json.JSONArray(initial).toString()).apply()
-        }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { appDrawer = false; search = ""; entrancePending = true; render() }
         })
@@ -162,6 +166,7 @@ class FoldActivity : AppCompatActivity() {
         ContextCompat.registerReceiver(this, packageReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED); addAction(Intent.ACTION_PACKAGE_REMOVED); addAction(Intent.ACTION_PACKAGE_CHANGED); addDataScheme("package")
         }, ContextCompat.RECEIVER_NOT_EXPORTED)
+        refreshApps()
         handler.post(tick)
     }
     override fun onResume() {
@@ -218,7 +223,7 @@ class FoldActivity : AppCompatActivity() {
         out.putBoolean("foldReveal", pendingFoldReveal || foldTransition.running)
         renderedWide?.let { out.putBoolean("wasWide", it) }
         saveScroll(); out.putBoolean("drawer", appDrawer); out.putString("search", search)
-        out.putInt("homeY", homeY); out.putInt("rightY", rightY); out.putInt("drawerY", drawerY)
+        out.putInt("homeY", homeY); out.putInt("rightY", rightY); out.putInt("drawerPosition", drawerPosition); out.putInt("drawerOffset", drawerOffset)
         super.onSaveInstanceState(out)
     }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); appDrawer = false; search = ""; entrancePending = true; render() }
@@ -259,7 +264,7 @@ class FoldActivity : AppCompatActivity() {
         background = MetroStyle.surface(0xff1d2b45.toInt(), 0xff142139.toInt(), dp(3).toFloat())
         setOnClickListener { click() }
     }
-    private fun tile(start: Int, end: Int, padding: Int = 16) = MetroTile(this, start, end).apply { setPadding(dp(padding), dp(padding), dp(padding), dp(padding)) }
+    private fun tile(start: Int, end: Int, padding: Int = 16) = MetroTile(this, start, end).apply { motionEnabled = effectsAllowed(); setPadding(dp(padding), dp(padding), dp(padding), dp(padding)) }
     private fun block(parent: LinearLayout, child: View, bottom: Int = 12) { parent.addView(child, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(bottom) }) }
     private fun effectsAllowed(): Boolean {
         if (!prefs.getBoolean("effects", true)) return false
@@ -276,7 +281,11 @@ class FoldActivity : AppCompatActivity() {
         view.alpha = .2f; view.translationY = dp(22).toFloat(); view.rotationX = 4f
         view.animate().alpha(1f).translationY(0f).rotationX(0f).setDuration(520).setStartDelay((index * 45).toLong()).setInterpolator(DecelerateInterpolator()).start()
     }
-    private fun saveScroll() { homeScroll?.let { homeY = it.scrollY }; rightScroll?.let { rightY = it.scrollY }; drawerScroll?.let { drawerY = it.scrollY } }
+    private fun saveScroll() { homeScroll?.let { homeY = it.scrollY }; rightScroll?.let { rightY = it.scrollY }; drawerScroll?.let { list ->
+        val layout = list.layoutManager as? LinearLayoutManager
+        drawerPosition = layout?.findFirstVisibleItemPosition()?.coerceAtLeast(0) ?: 0
+        drawerOffset = layout?.findViewByPosition(drawerPosition)?.top ?: 0
+    } }
 
     private fun flushPendingRender(pager: LauncherPager) {
         if (pages !== pager || !hasWindowFocus() || touchSequenceActive || pager.pointerDown || pager.pagingState != ViewPager.SCROLL_STATE_IDLE) return
@@ -441,6 +450,12 @@ class FoldActivity : AppCompatActivity() {
         val pager = LauncherPager(this).apply {
             layoutDirection = View.LAYOUT_DIRECTION_LTR
             offscreenPageLimit = 1
+            if (effectsAllowed()) setPageTransformer(false) { page, position ->
+                val distance = kotlin.math.abs(position).coerceIn(0f, 1f)
+                page.pivotX = page.width * .5f; page.pivotY = page.height * .45f
+                page.scaleX = 1f - distance * .045f; page.scaleY = 1f - distance * .045f
+                page.alpha = 1f - distance * .25f
+            }
             adapter = LauncherPages(listOf(homePage, appsPage))
             setCurrentItem(selectedPage, false)
         }
@@ -636,29 +651,54 @@ class FoldActivity : AppCompatActivity() {
         entrance(card, 2, animate)
     }
 
-    private fun apps() = packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
-        .filter { it.activityInfo.packageName != packageName }
-        .distinctBy { ComponentName(it.activityInfo.packageName, it.activityInfo.name).flattenToString() }
-        .sortedBy { it.loadLabel(packageManager).toString().lowercase() }
-    private fun key(info: ResolveInfo) = ComponentName(info.activityInfo.packageName, info.activityInfo.name).flattenToString()
+    private fun refreshApps(forceRender: Boolean = false) {
+        appScan?.cancel()
+        appScan = lifecycleScope.launch {
+            try {
+                val result = appCatalog.scan()
+                ensureActive()
+                val changed = forceRender || !appsLoaded || installedApps.map { it.id to it.label } != result.map { it.id to it.label }
+                installedApps = result; appsLoaded = true
+                if (!prefs.contains("pins")) {
+                    val initial = result.take(4).map { it.id }
+                    if (initial.isNotEmpty()) prefs.edit().putString("pins", org.json.JSONArray(initial).toString()).apply()
+                }
+                updateDrawer?.invoke()
+                if (changed) renderData()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                // Keep the previous usable catalog if the package service is temporarily unavailable.
+                updateDrawer?.invoke()
+            }
+        }
+    }
+    private fun bindIcon(view: ImageView, app: LauncherApp) {
+        view.setImageResource(android.R.drawable.sym_def_app_icon)
+        lifecycleScope.launch { appCatalog.icon(app)?.let { view.setImageDrawable(it) } }
+    }
     private fun pins(): List<String> = runCatching {
         val list = org.json.JSONArray(prefs.getString("pins", "[]")); (0 until list.length()).map { list.getString(it) }
     }.getOrDefault(emptyList())
-    private fun pin(id: String) { val list = pins().toMutableList(); if (!list.remove(id)) list.add(0, id); prefs.edit().putString("pins", org.json.JSONArray(list).toString()).apply(); render() }
-    private fun launch(info: ResolveInfo) { open(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(ComponentName(info.activityInfo.packageName, info.activityInfo.name)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    private fun pin(id: String) {
+        val list = pins().toMutableList(); if (!list.remove(id)) list.add(0, id)
+        prefs.edit().putString("pins", org.json.JSONArray(list).toString()).apply()
+        updateDrawer?.invoke()
+        if (appDrawer) dataRenderPending = true else render()
+    }
+    private fun launch(app: LauncherApp) { open(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(ComponentName.unflattenFromString(app.id)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     private fun addFavorites(parent: LinearLayout, columns: Int, animate: Boolean) {
-        val all = apps(); val favorites = pins().distinct().mapNotNull { id -> all.find { key(it) == id } }
+        val all = installedApps.associateBy { it.id }; val favorites = pins().distinct().mapNotNull { all[it] }
         if (favorites.isEmpty()) { block(parent, text("Mantén premuda una app de la llista per fixar-la aquí.", 15f, MetroStyle.muted).apply { tag = "desktop-favorites-row" }); return }
         val colors = listOf(0xff275992.toInt() to 0xff172a50.toInt(), 0xff4b417d.toInt() to 0xff262342.toInt(), 0xff23696b.toInt() to 0xff153b46.toInt(), 0xff765441.toInt() to 0xff3f2934.toInt())
         favorites.chunked(columns).forEachIndexed { rowIndex, row ->
             val line = LinearLayout(this).apply { tag = "desktop-favorites-row"; clipChildren = false; clipToPadding = false }
             row.forEachIndexed { i, app ->
                 val index = rowIndex * columns + i; val color = colors[index % colors.size]
-                val item = tile(color.first, color.second, 9).apply { minimumHeight = dp(78); tag = "favorite:" + key(app) }
-                item.addView(ImageView(this).apply { setImageDrawable(app.loadIcon(packageManager)); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(36), dp(36)))
-                item.addView(text(app.loadLabel(packageManager).toString(), 12f).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
-                item.setOnClickListener { launch(app) }; item.setOnLongClickListener { pin(key(app)); true }
-                item.contentDescription = app.loadLabel(packageManager).toString() + ". Mantén premut per treure el mosaic."
+                val item = tile(color.first, color.second, 9).apply { minimumHeight = dp(78); tag = "favorite:" + app.id }
+                item.addView(ImageView(this).apply { bindIcon(this, app); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(36), dp(36)))
+                item.addView(text(app.label, 12f).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+                item.setOnClickListener { launch(app) }; item.setOnLongClickListener { pin(app.id); true }
+                item.contentDescription = app.label + ". Mantén premut per treure el mosaic."
                 line.addView(item, LinearLayout.LayoutParams(0, -1, 1f).apply { if(i < columns - 1) rightMargin = dp(8) })
                 entrance(item, 3 + index, animate)
             }
@@ -667,35 +707,49 @@ class FoldActivity : AppCompatActivity() {
         }
     }
     private fun renderDrawer(root: LinearLayout) {
-        val input = EditText(this).apply { setTextColor(MetroStyle.text); setHintTextColor(MetroStyle.muted); hint = "Cerca aplicacions"; setSingleLine(); setText(search) }
-        root.addView(input)
-        val list = column()
+        val input = EditText(this).apply {
+            setTextColor(MetroStyle.text); setHintTextColor(MetroStyle.muted)
+            hint = "Cerca aplicacions"; setSingleLine(); setText(search)
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_GO
+            background = MetroStyle.surface(0xbb1d304b.toInt(), 0x9913233b.toInt(), dp(14).toFloat())
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+        }
+        root.addView(input, LinearLayout.LayoutParams(-1, dp(56)))
+        val status = text("", 12f, MetroStyle.muted).apply { setPadding(dp(4), dp(10), 0, dp(10)) }
+        root.addView(status)
+        val adapter = AppDrawerAdapter(lifecycleScope, appCatalog, { launch(it) }, { pin(it) })
+        val layout = LinearLayoutManager(this)
+        val list = RecyclerView(this).apply {
+            layoutManager = layout; this.adapter = adapter
+            itemAnimator = null; setHasFixedSize(true)
+            clipToPadding = false; setPadding(0, 0, 0, dp(12))
+        }
+        drawerScroll = list
+        root.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
         fun fill() {
-            list.removeAllViews()
-            val visible = apps().filter { it.loadLabel(packageManager).toString().contains(search, true) }
-            if (visible.isEmpty()) list.addView(text("Cap aplicació coincideix amb la cerca", 18f, MetroStyle.muted))
-            var initial = ""
-            visible.forEach { app ->
-                if (MetroStyle.windows) {
-                    val letter = app.loadLabel(packageManager).toString().take(1).uppercase(Locale.getDefault())
-                    if (letter != initial) {
-                        initial = letter
-                        list.addView(text(letter, 28f, MetroStyle.mint).apply { minimumHeight = dp(48); contentDescription = "Grup $letter" })
-                    }
-                }
-                val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(64) }
-                row.addView(ImageView(this).apply { setImageDrawable(app.loadIcon(packageManager)); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(36), dp(36)))
-                row.addView(text(app.loadLabel(packageManager).toString() + if (key(app) in pins()) "  ▪" else "", 20f), LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(14) })
-                row.setOnClickListener { launch(app) }; row.setOnLongClickListener { pin(key(app)); true }; list.addView(row)
+            val query = AppSearch.normalize(search)
+            val visible = installedApps.filter { it.searchable.contains(query) }
+            adapter.submit(visible, pins().toSet())
+            status.text = when {
+                !appsLoaded -> "Carregant aplicacions…"
+                visible.isEmpty() -> "Cap aplicació coincideix amb la cerca"
+                else -> "${visible.size} aplicacions · mantén premut per fixar"
             }
         }
+        updateDrawer = { fill() }
         input.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { search = s.toString(); fill() }
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                search = s.toString(); fill(); list.scrollToPosition(0)
+            }
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
-        val scroll = ScrollView(this).apply { addView(list) }; drawerScroll = scroll
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f)); fill(); scroll.post { scroll.scrollTo(0, drawerY) }
+        input.setOnEditorActionListener { _, action, _ ->
+            if (action == android.view.inputmethod.EditorInfo.IME_ACTION_GO) {
+                adapter.first()?.let { launch(it) }; true
+            } else false
+        }
+        fill(); layout.scrollToPositionWithOffset(drawerPosition, drawerOffset)
     }
 
     internal fun captainMap() {

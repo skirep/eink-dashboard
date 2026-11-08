@@ -22,9 +22,49 @@ internal class WeatherScene(
     private val nightArtwork: Boolean = false
 ) : FrameLayout(context) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val path = Path()
     private val imagePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val imageBounds = RectF()
+    private val wet = code in 51..67 || code in 80..82 || code >= 95
+    private val snow = code in 71..77 || code in 85..86
+    private val cloudy = code >= 2
+    private val known = code >= 0
+    private val top = when { !known -> 0xff101c38; night -> 0xff091126; wet || snow -> 0xff203447; else -> 0xff123b63 }.toInt()
+    private val horizon = when { !known -> 0xff243652; night -> 0xff34456b; wet || snow -> 0xff648084; else -> 0xffc58a72 }.toInt()
+    private var skyGradient: Shader? = null
+    private var glowGradient: Shader? = null
+    private var cloudGradient: Shader? = null
+    private var edgeGradient: Shader? = null
+    private val terrain = Array(4) { Path() }
+    private val terrainGradients = arrayOfNulls<Shader>(4)
+    private val photoFilter = if (wallpaper != null && weatherOverlay && known) {
+        val matrix = ColorMatrix().apply { setSaturation(if (wet || snow || cloudy) .55f else 1f) }
+        val light = when { night && nightArtwork -> floatArrayOf(1f, 1f, 1f); night -> floatArrayOf(.40f, .48f, .65f); wet || snow -> floatArrayOf(.65f, .76f, .85f); cloudy -> floatArrayOf(.82f, .88f, .95f); else -> floatArrayOf(1f, 1f, 1f) }
+        matrix.postConcat(ColorMatrix(floatArrayOf(light[0],0f,0f,0f,0f, 0f,light[1],0f,0f,0f, 0f,0f,light[2],0f,0f, 0f,0f,0f,1f,0f)))
+        ColorMatrixColorFilter(matrix)
+    } else null
+    override fun onSizeChanged(width: Int, height: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(width, height, oldw, oldh)
+        if (width <= 0 || height <= 0) return
+        val w = width.toFloat(); val h = height.toFloat()
+        skyGradient = LinearGradient(0f, 0f, w * .55f, h, intArrayOf(top, horizon, 0xff102a38.toInt()), floatArrayOf(0f, .62f, 1f), Shader.TileMode.CLAMP)
+        val r = min(w, h) * .075f
+        glowGradient = RadialGradient(w * .79f, h * .22f, r * 4.5f, intArrayOf(if (night) 0x6084adff else 0x70ffd6a2, 0x00ffd6a2), null, Shader.TileMode.CLAMP)
+        cloudGradient = RadialGradient(0f, 0f, w * .48f, intArrayOf(if (night) 0x305f7395 else 0x509fbac4, 0x009fbac4), null, Shader.TileMode.CLAMP)
+        edgeGradient = LinearGradient(0f, 0f, 0f, h, intArrayOf(0x8c060d1b.toInt(), 0x18060d1b, 0xb3060d1b.toInt()), floatArrayOf(0f, .42f, 1f), Shader.TileMode.CLAMP)
+        for (layer in 0..3) {
+            val base = h * (.51f + layer * .115f)
+            terrain[layer].apply {
+                reset(); moveTo(-w * .1f, h * 1.2f); lineTo(-w * .1f, base)
+                for (j in 0..40) {
+                    val wave = sin(j * .14 + layer * 1.7) * .055 + sin(j * .37 + layer) * .022
+                    lineTo(-w * .1f + w * 1.2f * j / 40f, base + (wave * h).toFloat())
+                }
+                lineTo(w * 1.1f, h * 1.2f); close()
+            }
+            terrainGradients[layer] = LinearGradient(0f, base - h * .08f, 0f, h,
+                intArrayOf(when(layer) { 0 -> 0xff456778; 1 -> 0xff244c5b; 2 -> 0xff13323e; else -> 0xff081b29 }.toInt(), 0xff07101e.toInt()), null, Shader.TileMode.CLAMP)
+        }
+    }
     private val born = SystemClock.uptimeMillis()
     private var touchX = 0f
     private var touchY = 0f
@@ -68,15 +108,9 @@ internal class WeatherScene(
         val t = if (moving) (SystemClock.uptimeMillis() % 360000L) / 1000f else 0f
         val reveal = if (moving && unfold) (1f - ((SystemClock.uptimeMillis() - born) / 950f).coerceIn(0f, 1f)).pow(3) else 0f
         val w = width.toFloat(); val h = height.toFloat()
-        val wet = code in 51..67 || code in 80..82 || code >= 95
-        val snow = code in 71..77 || code in 85..86
-        val cloudy = code >= 2
-        val known = code >= 0
         val backdrop = wallpaper ?: if (known) WeatherBackdrop.image(context) else null
-        val top = when { !known -> 0xff101c38; night -> 0xff091126; wet || snow -> 0xff203447; else -> 0xff123b63 }.toInt()
-        val horizon = when { !known -> 0xff243652; night -> 0xff34456b; wet || snow -> 0xff648084; else -> 0xffc58a72 }.toInt()
         if (backdrop == null) {
-        p.alpha = 255; p.shader = LinearGradient(0f, 0f, w * .55f, h, intArrayOf(top, horizon, 0xff102a38.toInt()), floatArrayOf(0f, .62f, 1f), Shader.TileMode.CLAMP)
+        p.alpha = 255; p.shader = skyGradient
         c.drawPaint(p); p.shader = null
         }
         c.save()
@@ -87,12 +121,7 @@ internal class WeatherScene(
             val scale = max(w / source.width(), h / source.height())
             val iw = source.width() * scale; val ih = source.height() * scale
             imageBounds.set((w - iw) / 2f, (h - ih) / 2f, (w + iw) / 2f, (h + ih) / 2f)
-            imagePaint.colorFilter = if (wallpaper != null && weatherOverlay && known) {
-                val matrix = ColorMatrix().apply { setSaturation(if (wet || snow || cloudy) .55f else 1f) }
-                val light = when { night && nightArtwork -> floatArrayOf(1f, 1f, 1f); night -> floatArrayOf(.40f, .48f, .65f); wet || snow -> floatArrayOf(.65f, .76f, .85f); cloudy -> floatArrayOf(.82f, .88f, .95f); else -> floatArrayOf(1f, 1f, 1f) }
-                matrix.postConcat(ColorMatrix(floatArrayOf(light[0],0f,0f,0f,0f, 0f,light[1],0f,0f,0f, 0f,0f,light[2],0f,0f, 0f,0f,0f,1f,0f)))
-                ColorMatrixColorFilter(matrix)
-            } else null
+            imagePaint.colorFilter = photoFilter
             c.drawBitmap(image, source, imageBounds, imagePaint)
             if (weatherOverlay && known) {
                 p.color = if (night) 0x55101a38 else 0x151a3549
@@ -102,7 +131,7 @@ internal class WeatherScene(
         val atmosphere = wallpaper == null || weatherOverlay
         if (known && atmosphere) {
             val sx = w * .79f; val sy = h * .22f; val r = min(w, h) * .075f
-            p.alpha = 255; p.shader = RadialGradient(sx, sy, r * 4.5f, intArrayOf(if (night) 0x6084adff else 0x70ffd6a2, 0x00ffd6a2), null, Shader.TileMode.CLAMP)
+            p.alpha = 255; p.shader = glowGradient
             c.drawCircle(sx, sy, r * 4.5f, p); p.shader = null
             if (backdrop == null && code <= 2) {
                 p.color = if (night) 0xffe3edff.toInt() else 0xffffe3b2.toInt(); c.drawCircle(sx, sy, r, p)
@@ -117,24 +146,16 @@ internal class WeatherScene(
         if (atmosphere && (cloudy || !known)) for (i in 0..6) {
             val x = w * (((i * .31f + t * (.0009f + i * .00015f)) % 1.7f) - .35f)
             val y = h * (.12f + i * .067f)
-            p.alpha = 255; p.shader = RadialGradient(x, y, w * .48f, intArrayOf(if (night) 0x305f7395 else 0x509fbac4, 0x009fbac4), null, Shader.TileMode.CLAMP)
-            c.save(); c.scale(1.8f, .24f, x, y); c.drawCircle(x, y, w * .48f, p); c.restore()
+            p.alpha = 255; p.shader = cloudGradient
+            c.save(); c.translate(x, y); c.scale(1.8f, .24f)
+            c.drawCircle(0f, 0f, w * .48f, p); c.restore()
         }
         p.shader = null
         // Layered coastal relief, deliberately stylised rather than a claimed geographic map.
         if (backdrop == null) for (layer in 0..3) {
-            val base = h * (.51f + layer * .115f)
-            path.reset(); path.moveTo(-w * .1f, h * 1.2f)
-            path.lineTo(-w * .1f, base)
-            for (j in 0..40) {
-                val x = -w * .1f + w * 1.2f * j / 40f
-                val wave = sin(j * .14 + layer * 1.7) * .055 + sin(j * .37 + layer) * .022
-                path.lineTo(x, base + (wave * h).toFloat() + driftY * layer * 7f)
-            }
-            path.lineTo(w * 1.1f, h * 1.2f); path.close()
-            p.alpha = 255; p.shader = LinearGradient(0f, base - h * .08f, 0f, h, intArrayOf(
-                when(layer) { 0 -> 0xff456778; 1 -> 0xff244c5b; 2 -> 0xff13323e; else -> 0xff081b29 }.toInt(), 0xff07101e.toInt()), null, Shader.TileMode.CLAMP)
-            c.save(); c.translate(driftX * layer * 12f + reveal * (layer - 1) * w * .08f, 0f); c.drawPath(path, p); c.restore()
+            p.alpha = 255; p.shader = terrainGradients[layer]
+            c.save(); c.translate(driftX * layer * 12f + reveal * (layer - 1) * w * .08f, driftY * layer * 7f)
+            c.drawPath(terrain[layer], p); c.restore()
         }
         p.shader = null
         if (atmosphere && (wet || snow)) {
@@ -148,7 +169,7 @@ internal class WeatherScene(
         }
         c.restore()
         // Text contrast and OLED-friendly edges over every condition.
-        p.alpha = 255; p.shader = LinearGradient(0f, 0f, 0f, h, intArrayOf(0x8c060d1b.toInt(), 0x18060d1b, 0xb3060d1b.toInt()), floatArrayOf(0f, .42f, 1f), Shader.TileMode.CLAMP)
+        p.alpha = 255; p.shader = edgeGradient
         c.drawRect(0f, 0f, w, h, p); p.shader = null
     }
 }
