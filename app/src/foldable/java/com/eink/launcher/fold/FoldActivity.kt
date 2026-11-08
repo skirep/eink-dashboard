@@ -124,6 +124,21 @@ class FoldActivity : AppCompatActivity() {
         override fun onReceive(context: Context?, intent: Intent?) { appCatalog.invalidateIcons(); refreshApps(true) }
     }
     private val handler = Handler(Looper.getMainLooper())
+    private var lastInteractionAt = 0L
+    private var lastScrollAt = 0L
+    private val dataFrame = object : Runnable {
+        override fun run() {
+            if (!dataRenderPending || appDrawer || !resumed || !hasWindowFocus() || foldTransition.running ||
+                (pages?.pagingState ?: ViewPager.SCROLL_STATE_IDLE) != ViewPager.SCROLL_STATE_IDLE) return
+            val now = SystemClock.uptimeMillis()
+            if (touchSequenceActive || pages?.pointerDown == true ||
+                now - lastInteractionAt < 450 || now - lastScrollAt < 450) {
+                handler.postDelayed(this, 250)
+                return
+            }
+            render()
+        }
+    }
     private val tick = object : Runnable {
         override fun run() {
             headerClock?.text = clockText(); headerDate?.text = dateText()
@@ -210,12 +225,15 @@ class FoldActivity : AppCompatActivity() {
         perspective.enable(resumed && hasWindowFocus() && !foldTransition.running && !appDrawer && effectsAllowed() && prefs.getBoolean("perspective", true))
     }
     private fun renderData() {
-        // Data updates must not replace a focused search field or disturb an open dialog.
-        if (appDrawer || touchSequenceActive || pages?.pointerDown == true || !hasWindowFocus() || (pages?.pagingState ?: ViewPager.SCROLL_STATE_IDLE) != ViewPager.SCROLL_STATE_IDLE) dataRenderPending = true else render()
+        // Weather, mail, thumbnails and app scans often finish together. Coalesce
+        // them, and let vertical flings and window drags settle before replacing views.
+        dataRenderPending = true
+        handler.removeCallbacks(dataFrame)
+        if (resumed) handler.postDelayed(dataFrame, 350)
     }
     override fun onStop() {
         touchSequenceActive = false
-        handler.removeCallbacks(tick); unregisterReceiver(packageReceiver)
+        handler.removeCallbacks(tick); handler.removeCallbacks(dataFrame); unregisterReceiver(packageReceiver)
         if (observerRegistered) { contentResolver.unregisterContentObserver(calendarObserver); observerRegistered = false }
         super.onStop()
     }
@@ -232,6 +250,7 @@ class FoldActivity : AppCompatActivity() {
     // The clock, photos and dock live outside the pager. A data refresh must not
     // remove their pressed view between DOWN and UP either.
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        lastInteractionAt = SystemClock.uptimeMillis()
         if (event.actionMasked == MotionEvent.ACTION_DOWN) { touchSequenceActive = true; pendingFoldReveal = false; foldTransition.finish(); perspective.touch(true) }
         return try { super.dispatchTouchEvent(event) } finally {
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
@@ -309,6 +328,7 @@ class FoldActivity : AppCompatActivity() {
             layoutRenderPending = true
             return
         }
+        handler.removeCallbacks(dataFrame)
         layoutRenderPending = false
         dataRenderPending = false
         LauncherThemes.select(prefs.getString("theme", LauncherThemes.METRO))
@@ -541,6 +561,8 @@ class FoldActivity : AppCompatActivity() {
         if (wide) {
             val first = ScrollView(this).apply { setPadding(dp(8), dp(8), dp(8), dp(12)); clipToPadding = false; addView(left); isFillViewport = true; isVerticalScrollBarEnabled = false }
             val second = ScrollView(this).apply { setPadding(dp(8), dp(8), dp(8), dp(12)); clipToPadding = false; addView(right); isFillViewport = true; isVerticalScrollBarEnabled = false }
+            first.setOnScrollChangeListener { _, _, _, _, _ -> lastScrollAt = SystemClock.uptimeMillis() }
+            second.setOnScrollChangeListener { _, _, _, _, _ -> lastScrollAt = SystemClock.uptimeMillis() }
             homeScroll = first; rightScroll = second
             val gap = View(this)
             if (horizontal) {
@@ -562,6 +584,7 @@ class FoldActivity : AppCompatActivity() {
         } else {
             body.addView(left); body.addView(right)
             val scroll = ScrollView(this).apply { setPadding(dp(8), dp(8), dp(8), dp(12)); clipToPadding = false; addView(body); isVerticalScrollBarEnabled = false }
+            scroll.setOnScrollChangeListener { _, _, _, _, _ -> lastScrollAt = SystemClock.uptimeMillis() }
             homeScroll = scroll; root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f)); scroll.post { scroll.scrollTo(0, homeY) }
         }
     }
