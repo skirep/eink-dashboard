@@ -154,4 +154,4 @@ Validation for this increment: run `./gradlew testFoldableDebugUnitTest lintFold
 
 `./gradlew assembleFoldableCompatible` builds the same launcher without the notification-listener service and without the debuggable flag. This edition keeps app launching, themes, weather, calendar and mail-app shortcuts, but cannot show Gmail/Outlook notification previews or request notification-listener access. The complete debug build remains available separately. The compatible APK is signed with the CI debug key; installing over a differently signed copy is still unsupported.
 
-The CI checks the final merged manifest for notification/accessibility/SMS access, verifies signing and installs/launches the compatible APK on the emulator before running the existing debug suite. Device-specific Play Protect acceptance still requires confirmation on the device.
+The CI checks the final merged manifest for notification/accessibility/SMS access, verifies signing and installs/launches the compatible APK on an Android 16 emulator, alongside the existing debug suite. Device-specific Play Protect acceptance still requires confirmation on the device.
