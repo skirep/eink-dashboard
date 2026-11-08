@@ -1,5 +1,15 @@
 # E-Ink Dashboard Launcher
 
+## Fold Metro — mòbils plegables
+
+Nova variant Android amb mosaics estil Windows 10 Mobile, agenda real i temps,
+adaptació al plec i a pantalles compactes/amples.
+[Instal·lació i detalls](FOLD_METRO.md).
+
+Compila amb `./gradlew assembleFoldableDebug`.
+La variant e-ink es compila ara amb `./gradlew assembleEinkDebug`.
+
+
 An Android home-screen launcher optimised for **e-ink displays** (originally
 targeting the Yota Phone 2, but usable on any Android device with an e-ink
 panel).
@@ -25,7 +35,7 @@ panel).
 ```bash
 git clone https://github.com/skirep/eink-dashboard.git
 cd eink-dashboard
-./gradlew assembleDebug
+./gradlew assembleEinkDebug
 ```
 
 ### 2. Configure Weather API (Optional)
@@ -109,13 +119,13 @@ adb push my_photo.jpg \
 
 Requirements:
 * Android SDK (API 34)
-* JDK 8 or later
+* JDK 17
 * Internet access to [Google Maven](https://maven.google.com) for the Android
   Gradle Plugin
 
 ```bash
-./gradlew assembleDebug
-# APK will be at app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleEinkDebug
+# APK will be at app/build/outputs/apk/eink/debug/app-eink-debug.apk
 ```
 
 ---
@@ -125,3 +135,23 @@ Requirements:
 1. Install the APK on the device.
 2. Press the **Home** button.
 3. Select **E-Ink Launcher** from the resolver dialog and choose **Always**.
+
+
+### MagicFold 0.17 — responsive app library and tactile tiles
+
+The MagicFold implementation lives on `feature/foldable-metro` (PR #4).
+
+- Launcher metadata and labels load on `Dispatchers.IO`, once per foreground scan or package change. Home renders without waiting for PackageManager.
+- The app drawer recycles visible rows, keeps a bounded 64-icon cache, and loads icons off the main thread. Searching never rescans installed packages or decodes every app icon.
+- Search ignores accents and case, displays a result count, supports keyboard Go, and keeps the search field and scroll position when pinning apps.
+- Page swipes have subtle depth and fade. Tiles compress under touch with a mint light that follows the finger; effects respect the existing animation and battery policy.
+- Weather gradients, terrain paths and photo colour filters are prepared once per viewport instead of rebuilt every animated frame. Sensor transforms ignore tiny changes at rest.
+
+Validation for this increment: run `./gradlew testFoldableDebugUnitTest lintFoldableDebug assembleFoldableDebug assembleFoldableDebugAndroidTest assembleEinkDebug` and `./gradlew connectedFoldableDebugAndroidTest`. New coverage checks accent/locale search and verifies that a 1,000-app drawer only inflates viewport rows. Device frame times and battery improvements still require measurement on a real HONOR Magic V2; no percentage speedup is claimed.
+
+
+### Optional compatible APK
+
+`./gradlew assembleFoldableCompatible` builds the same launcher without the notification-listener service and without the debuggable flag. This edition keeps app launching, themes, weather, calendar and mail-app shortcuts, but cannot show Gmail/Outlook notification previews or request notification-listener access. The complete debug build remains available separately. The compatible APK is signed with the CI debug key; installing over a differently signed copy is still unsupported.
+
+The CI checks the final merged manifest for notification/accessibility/SMS access, verifies signing and installs/launches the compatible APK on an Android 16 emulator, alongside the existing debug suite. Device-specific Play Protect acceptance still requires confirmation on the device.
