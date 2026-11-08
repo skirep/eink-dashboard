@@ -284,8 +284,11 @@ class FoldActivity : AppCompatActivity() {
     }
     private fun saveScroll() { homeScroll?.let { homeY = it.scrollY }; rightScroll?.let { rightY = it.scrollY }; drawerScroll?.let { list ->
         val layout = list.layoutManager as? LinearLayoutManager
-        drawerPosition = layout?.findFirstVisibleItemPosition()?.coerceAtLeast(0) ?: 0
-        drawerOffset = layout?.findViewByPosition(drawerPosition)?.top ?: 0
+        val first = layout?.findFirstVisibleItemPosition() ?: RecyclerView.NO_POSITION
+        if (first != RecyclerView.NO_POSITION) {
+            drawerPosition = first
+            drawerOffset = layout?.findViewByPosition(first)?.top ?: 0
+        }
     } }
 
     private fun flushPendingRender(pager: LauncherPager) {
@@ -727,10 +730,15 @@ class FoldActivity : AppCompatActivity() {
         }
         drawerScroll = list
         root.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
+        var restorePending = true
         fun fill() {
             val query = AppSearch.normalize(search)
             val visible = installedApps.filter { it.searchable.contains(query) }
             adapter.submit(visible, pins().toSet())
+            if (appsLoaded && restorePending) {
+                restorePending = false
+                layout.scrollToPositionWithOffset(drawerPosition.coerceAtMost((visible.size - 1).coerceAtLeast(0)), drawerOffset)
+            }
             status.text = when {
                 !appsLoaded && appLoadFailed -> "No s’han pogut carregar les apps · torna a obrir MagicFold"
                 !appsLoaded -> "Carregant aplicacions…"
@@ -742,7 +750,7 @@ class FoldActivity : AppCompatActivity() {
         input.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                search = s.toString(); fill(); list.scrollToPosition(0)
+                search = s.toString(); restorePending = false; fill(); list.scrollToPosition(0)
             }
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
@@ -751,7 +759,7 @@ class FoldActivity : AppCompatActivity() {
                 adapter.first()?.let { launch(it) }; true
             } else false
         }
-        fill(); layout.scrollToPositionWithOffset(drawerPosition, drawerOffset)
+        fill()
     }
 
     internal fun captainMap() {
