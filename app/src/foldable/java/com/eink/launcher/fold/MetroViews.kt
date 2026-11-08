@@ -43,7 +43,7 @@ internal object MetroStyle {
 }
 
 internal class MetroTile(context: Context, start: Int, end: Int) : LinearLayout(context) {
-    var motionEnabled = true
+    var motionEnabled = context.getSharedPreferences("fold-metro", Context.MODE_PRIVATE).getBoolean("effects", true)
     private val lightPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val lightMatrix = Matrix()
     private var light: RadialGradient? = null

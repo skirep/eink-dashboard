@@ -92,6 +92,7 @@ class FoldActivity : AppCompatActivity() {
     private val appCatalog by lazy { AppCatalog(this) }
     private var installedApps = emptyList<LauncherApp>()
     private var appsLoaded = false
+    private var appLoadFailed = false
     private var appScan: Job? = null
     private var updateDrawer: (() -> Unit)? = null
     private var drawerPosition = 0
@@ -170,7 +171,7 @@ class FoldActivity : AppCompatActivity() {
         handler.post(tick)
     }
     override fun onResume() {
-        super.onResume(); resumed = true; refreshAgenda(); renderData(); syncPerspective()
+        super.onResume(); resumed = true; refreshAgenda(); syncPerspective()
         homePrompt?.visibility = if (isDefaultHome()) View.GONE else View.VISIBLE
         resumeFoldReveal()
     }
@@ -658,17 +659,16 @@ class FoldActivity : AppCompatActivity() {
                 val result = appCatalog.scan()
                 ensureActive()
                 val changed = forceRender || !appsLoaded || installedApps.map { it.id to it.label } != result.map { it.id to it.label }
-                installedApps = result; appsLoaded = true
+                installedApps = result; appsLoaded = true; appLoadFailed = false
                 if (!prefs.contains("pins")) {
                     val initial = result.take(4).map { it.id }
                     if (initial.isNotEmpty()) prefs.edit().putString("pins", org.json.JSONArray(initial).toString()).apply()
                 }
-                updateDrawer?.invoke()
-                if (changed) renderData()
+                if (changed) { updateDrawer?.invoke(); renderData() }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) {
                 // Keep the previous usable catalog if the package service is temporarily unavailable.
-                updateDrawer?.invoke()
+                appLoadFailed = true; updateDrawer?.invoke()
             }
         }
     }
@@ -709,6 +709,7 @@ class FoldActivity : AppCompatActivity() {
     private fun renderDrawer(root: LinearLayout) {
         val input = EditText(this).apply {
             setTextColor(MetroStyle.text); setHintTextColor(MetroStyle.muted)
+            tag = "desktop-surface"
             hint = "Cerca aplicacions"; setSingleLine(); setText(search)
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_GO
             background = MetroStyle.surface(0xbb1d304b.toInt(), 0x9913233b.toInt(), dp(14).toFloat())
@@ -731,6 +732,7 @@ class FoldActivity : AppCompatActivity() {
             val visible = installedApps.filter { it.searchable.contains(query) }
             adapter.submit(visible, pins().toSet())
             status.text = when {
+                !appsLoaded && appLoadFailed -> "No s’han pogut carregar les apps · torna a obrir MagicFold"
                 !appsLoaded -> "Carregant aplicacions…"
                 visible.isEmpty() -> "Cap aplicació coincideix amb la cerca"
                 else -> "${visible.size} aplicacions · mantén premut per fixar"
