@@ -57,7 +57,8 @@ class FoldSmokeTest {
                 screenshot("compact")
                 val homeContent = UiScrollable(UiSelector().className("android.widget.ScrollView").scrollable(true))
                 assertTrue(homeContent.scrollTextIntoView("Calendar"))
-                homeContent.scrollToBeginning(5)
+                // Live RSS content can make Home substantially longer than an empty feed.
+                homeContent.scrollToBeginning(30)
                 assertTrue(device.wait(Until.hasObject(By.text("Cabrils")), 10000))
                 resize("1920x1920")
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista ampla")), 15000))

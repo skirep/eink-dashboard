@@ -86,7 +86,7 @@ class FoldTransitionTest {
                     device.findObject(UiSelector().description("Configuració")).click()
                     UiScrollable(UiSelector().className("android.widget.ListView")).scrollTextIntoView("Transició en plegar: activada")
                     device.findObject(UiSelector().text("Transició en plegar: activada")).click()
-                    assertFalse(prefs.getBoolean("foldTransition", true))
+                    awaitState("The settings click must disable the fold transition", { !prefs.getBoolean("foldTransition", true) })
                     var starts = 0
                     onMain { starts = it.foldTransition.starts }
                     device.executeShellCommand("wm size 540x1080")
