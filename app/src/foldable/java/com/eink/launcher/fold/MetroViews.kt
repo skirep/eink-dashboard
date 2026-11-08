@@ -57,11 +57,12 @@ internal class MetroTile(context: Context, start: Int, end: Int) : LinearLayout(
             intArrayOf(0x448af5dc, 0x008af5dc), null, Shader.TileMode.CLAMP)
     }
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        val handled = super.dispatchTouchEvent(event)
         val allowed = motionEnabled && !MetroStyle.windows &&
             !(context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isPowerSaveMode &&
             (android.os.Build.VERSION.SDK_INT < 26 || android.animation.ValueAnimator.areAnimatorsEnabled())
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> if (allowed) {
+            MotionEvent.ACTION_DOWN -> if (allowed && handled) {
                 illuminated = true
                 animate().scaleX(.975f).scaleY(.975f).setDuration(100).start()
             }
@@ -72,7 +73,7 @@ internal class MetroTile(context: Context, start: Int, end: Int) : LinearLayout(
         }
         if (illuminated) { lightX = event.x; lightY = event.y }
         invalidate()
-        return super.dispatchTouchEvent(event)
+        return handled
     }
     override fun dispatchDraw(canvas: Canvas) {
         if (illuminated) {
