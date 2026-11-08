@@ -91,6 +91,7 @@ class FoldActivity : AppCompatActivity() {
     private var drawerScroll: RecyclerView? = null
     private val appCatalog by lazy { AppCatalog(this) }
     private var installedApps = emptyList<LauncherApp>()
+    internal val dashboardReady get() = appsLoaded && !dataRenderPending
     private var appsLoaded = false
     private var appLoadFailed = false
     private var appScan: Job? = null

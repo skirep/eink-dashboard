@@ -51,6 +51,7 @@ class FoldSmokeTest {
             resize("1080x1920")
             ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
                 assertTrue(device.wait(Until.hasObject(By.textContains("Vista compacta")), 15000))
+                awaitDashboard(scenario)
                 assertTrue(device.hasObject(By.text("Cabrils")))
                 assertTrue(device.hasObject(By.text("Tria una ciutat")))
                 screenshot("compact")

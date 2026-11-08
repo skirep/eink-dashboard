@@ -102,6 +102,7 @@ class ThemeAndPerspectiveTest {
                 device.executeShellCommand("wm size $size"); device.executeShellCommand("wm density 420")
                 ActivityScenario.launch(FoldActivity::class.java).use { scenario ->
                     assertTrue(device.wait(Until.hasObject(By.desc("Obre rellotge i alarmes")), 10000))
+                    awaitDashboard(scenario)
                     instrumentation.waitForIdleSync()
                     scenario.onActivity { activity ->
                         val favorites = panels(activity.window.decorView).filter { it.tag?.toString()?.startsWith("favorite:") == true }
